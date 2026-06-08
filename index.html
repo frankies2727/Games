@@ -61,27 +61,28 @@
         let myName = "";
         let currentRoomCode = "";
         let isHost = false;
-
+        let gameState = null;
+    
         // ============ CREATE ROOM ============
         function createRoom() {
             myName = document.getElementById('playerName').value.trim() || "Host";
             isHost = true;
-
+    
             peer = new Peer();
-
+    
             peer.on('open', (id) => {
                 currentRoomCode = id;
                 document.getElementById('status').innerHTML = `✅ Room Created`;
                 document.getElementById('roomCodeDisplay').innerHTML = `<strong>${id}</strong>`;
                 document.getElementById('copyBtn').style.display = 'inline-block';
-
+    
                 peer.on('connection', (conn) => {
                     connection = conn;
                     setupConnection(conn, true);
                 });
             });
         }
-
+    
         function copyRoomCode() {
             navigator.clipboard.writeText(currentRoomCode).then(() => {
                 const btn = document.getElementById('copyBtn');
@@ -89,70 +90,101 @@
                 setTimeout(() => btn.innerText = "📋 Copy Room Code", 1500);
             });
         }
-
+    
         function showJoinUI() {
             document.getElementById('joinUI').style.display = 'block';
         }
-
+    
         function joinRoom() {
             myName = document.getElementById('playerName').value.trim() || "Guest";
             const roomCode = document.getElementById('roomCodeInput').value.trim();
             if (!roomCode) return alert("Enter room code");
-
+    
             peer = new Peer();
             peer.on('open', () => {
                 connection = peer.connect(roomCode);
                 setupConnection(connection, false);
             });
         }
-
-        // ============ CONNECTION HANDLER ============
+    
+        // ============ CONNECTION ============
         function setupConnection(conn, host) {
             isHost = host;
-
+    
             conn.on('open', () => {
-                // Hide lobby, show game area
                 document.getElementById('lobby').classList.add('hidden');
                 document.getElementById('gameArea').classList.remove('hidden');
-
-                document.getElementById('gameStatus').innerText = `Connected as ${myName} (${isHost ? "Host" : "Guest"})`;
-
-                // Send player info
-                conn.send({
-                    type: "player_joined",
-                    name: myName,
-                    isHost: isHost
-                });
+    
+                document.getElementById('gameStatus').innerText = 
+                    `Connected as ${myName} (${isHost ? "Host" : "Guest"})`;
             });
-
+    
             conn.on('data', (data) => {
                 handleIncomingData(data);
             });
-
+    
             conn.on('close', () => {
                 document.getElementById('gameStatus').innerText = "Disconnected";
             });
         }
-
+    
+        // ============ HANDLE INCOMING DATA ============
         function handleIncomingData(data) {
-            console.log("Received:", data);
-            
-            if (data.type === "player_joined") {
-                document.getElementById('gameStatus').innerText = `${data.name} joined the game!`;
+            console.log("Received data:", data);
+    
+            if (data.type === "game_state") {
+                gameState = data.state;
+                updateGameUI();
+            }
+    
+            if (data.type === "start_game") {
+                document.getElementById('gameStatus').innerText = "Game Started!";
             }
         }
-
-        // ============ START GAME (Host only for now) ============
+    
+        // ============ START GAME (Host only) ============
         function startGame() {
             if (!isHost || !connection) {
                 alert("Only the host can start the game");
                 return;
             }
-
+    
+            // Create initial game state (simplified version of your original game)
+            gameState = {
+                status: "playing",
+                finderId: "host",           // We'll improve role assignment later
+                targetNumber: Math.floor(Math.random() * 100) + 1,
+                players: {
+                    host: { name: myName, score: 0 },
+                    guest: { name: "Waiting...", score: 0 }
+                }
+            };
+    
+            // Send game state to guest
+            connection.send({
+                type: "game_state",
+                state: gameState
+            });
+    
+            // Also send start signal
             connection.send({ type: "start_game" });
-            document.getElementById('gameStatus').innerText = "Game Started!";
+    
+            document.getElementById('gameStatus').innerText = 
+                `Game Started! Target: ${gameState.targetNumber} | You are the Finder`;
+        }
+    
+        // ============ UPDATE GAME UI ============
+        function updateGameUI() {
+            if (!gameState) return;
+    
+            let text = `Status: ${gameState.status}`;
+    
+            if (gameState.targetNumber) {
+                text += ` | Current Target: ${gameState.targetNumber}`;
+            }
+    
+            document.getElementById('gameStatus').innerText = text;
         }
     </script>
-
 </body>
 </html>
