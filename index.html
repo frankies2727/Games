@@ -4,9 +4,85 @@
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <title>My Google AI Studio App!! WHohoo!!</title>
   </head>
   <body>
+    <!-- ========== PHASE 1 TEST SECTION (Temporary) ========== -->
+    <div style="margin-top: 50px; padding: 20px; border: 2px solid #ccc; background: #f9f9f9;">
+        <h2>Phase 1 Test - PeerJS Connection</h2>
+        
+        <button onclick="createRoom()">Create Room (Host)</button>
+        <button onclick="showJoinUI()">Join Room (Guest)</button>
+        
+        <div id="joinUI" style="display: none; margin-top: 10px;">
+            <input type="text" id="roomCodeInput" placeholder="Enter room code">
+            <button onclick="joinRoom()">Join</button>
+        </div>
+    
+        <div id="status" style="margin-top: 15px; font-weight: bold;"></div>
+        <div id="messages" style="margin-top: 10px; font-family: monospace; white-space: pre-wrap;"></div>
+    </div>
+<!-- ========== END TEST SECTION ========== -->
+    <script>
+    let peer;
+    let connection;
+    
+    // Create a room (Host)
+    function createRoom() {
+        peer = new Peer();
+        
+        peer.on('open', (id) => {
+            document.getElementById('status').innerText = `✅ Room created! Code: ${id}`;
+            document.getElementById('messages').innerText = `Share this code with your friend: ${id}\n\nWaiting for someone to join...`;
+            
+            // Listen for incoming connections
+            peer.on('connection', (conn) => {
+                connection = conn;
+                setupConnection(conn);
+            });
+        });
+    }
+    
+    // Show join input
+    function showJoinUI() {
+        document.getElementById('joinUI').style.display = 'block';
+    }
+    
+    // Join a room (Guest)
+    function joinRoom() {
+        const roomCode = document.getElementById('roomCodeInput').value.trim();
+        if (!roomCode) {
+            alert("Please enter a room code");
+            return;
+        }
+    
+        peer = new Peer();
+        
+        peer.on('open', () => {
+            connection = peer.connect(roomCode);
+            setupConnection(connection);
+        });
+    }
+    
+    // Setup connection events
+    function setupConnection(conn) {
+        conn.on('open', () => {
+            document.getElementById('status').innerText = '✅ Connected!';
+            document.getElementById('messages').innerText += '\n\nConnected successfully! You can now send messages.';
+            
+            // Send a test message
+            conn.send("Hello from the other player!");
+        });
+    
+        conn.on('data', (data) => {
+            document.getElementById('messages').innerText += `\nReceived: ${data}`;
+        });
+    
+        conn.on('close', () => {
+            document.getElementById('status').innerText = '❌ Disconnected';
+        });
+    }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
