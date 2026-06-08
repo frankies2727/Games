@@ -7,50 +7,83 @@
     <title>My Google AI Studio App!! WHohoo!!</title>
   </head>
   <body>
-    <!-- ========== PHASE 1 TEST SECTION (Temporary) ========== -->
-    <div style="margin-top: 50px; padding: 20px; border: 2px solid #ccc; background: #f9f9f9;">
-        <h2>Phase 1 Test - PeerJS Connection</h2>
-        
-        <button onclick="createRoom()">Create Room (Host)</button>
-        <button onclick="showJoinUI()">Join Room (Guest)</button>
-        
-        <div id="joinUI" style="display: none; margin-top: 10px;">
-            <input type="text" id="roomCodeInput" placeholder="Enter room code">
-            <button onclick="joinRoom()">Join</button>
+<!-- ========== PHASE 2: Game Lobby (PeerJS) ========== -->
+    <div style="max-width: 500px; margin: 40px auto; padding: 25px; border: 2px solid #4a90e2; border-radius: 12px; background: #f8fbff;">
+        <h2 style="text-align: center; color: #2c3e50;">🎮 Multiplayer Lobby</h2>
+    
+        <!-- Name Input -->
+        <div style="margin-bottom: 15px;">
+            <label style="font-weight: bold;">Your Name:</label><br>
+            <input type="text" id="playerName" value="Player" style="width: 100%; padding: 8px; font-size: 16px;">
         </div>
     
-        <div id="status" style="margin-top: 15px; font-weight: bold;"></div>
-        <div id="messages" style="margin-top: 10px; font-family: monospace; white-space: pre-wrap;"></div>
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <!-- Create Room -->
+            <button onclick="createRoom()" 
+                    style="flex: 1; padding: 12px; font-size: 16px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                Create Room
+            </button>
+    
+            <!-- Join Room -->
+            <button onclick="showJoinUI()" 
+                    style="flex: 1; padding: 12px; font-size: 16px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                Join Room
+            </button>
+        </div>
+    
+        <!-- Join UI -->
+        <div id="joinUI" style="display: none; margin-bottom: 15px;">
+            <input type="text" id="roomCodeInput" placeholder="Enter Room Code" 
+                   style="width: 100%; padding: 10px; font-size: 16px; margin-bottom: 8px;">
+            <button onclick="joinRoom()" 
+                    style="width: 100%; padding: 10px; font-size: 16px; background: #2980b9; color: white; border: none; border-radius: 8px;">
+                Join Game
+            </button>
+        </div>
+    
+        <!-- Status & Room Code -->
+        <div id="status" style="margin-top: 15px; padding: 12px; background: white; border-radius: 8px; min-height: 50px; font-weight: bold; text-align: center;"></div>
+        
+        <div id="roomCodeDisplay" style="margin-top: 10px; text-align: center; font-size: 18px; font-weight: bold; color: #27ae60;"></div>
+    
+        <div id="messages" style="margin-top: 15px; padding: 10px; background: #fff; border-radius: 6px; font-family: monospace; white-space: pre-wrap; min-height: 60px;"></div>
     </div>
-<!-- ========== END TEST SECTION ========== -->
+<!-- ========== END PHASE 2 LOBBY ========== -->
+
     <script>
     let peer;
     let connection;
+    let myName = "";
     
-    // Create a room (Host)
+    // Create Room (Host)
     function createRoom() {
+        myName = document.getElementById('playerName').value || "Host";
+        
         peer = new Peer();
         
         peer.on('open', (id) => {
-            document.getElementById('status').innerText = `✅ Room created! Code: ${id}`;
-            document.getElementById('messages').innerText = `Share this code with your friend: ${id}\n\nWaiting for someone to join...`;
+            document.getElementById('status').innerHTML = `✅ Room Created!<br>Share this code with your friend:`;
+            document.getElementById('roomCodeDisplay').innerHTML = `<strong style="font-size:22px; color:#27ae60;">${id}</strong>`;
+            document.getElementById('messages').innerText = `Waiting for someone to join...\nYour name: ${myName}`;
             
-            // Listen for incoming connections
+            // Listen for incoming connection
             peer.on('connection', (conn) => {
                 connection = conn;
-                setupConnection(conn);
+                setupConnection(conn, true); // true = we are host
             });
         });
     }
     
-    // Show join input
+    // Show Join UI
     function showJoinUI() {
         document.getElementById('joinUI').style.display = 'block';
     }
     
-    // Join a room (Guest)
+    // Join Room (Guest)
     function joinRoom() {
+        myName = document.getElementById('playerName').value || "Guest";
         const roomCode = document.getElementById('roomCodeInput').value.trim();
+        
         if (!roomCode) {
             alert("Please enter a room code");
             return;
@@ -60,29 +93,35 @@
         
         peer.on('open', () => {
             connection = peer.connect(roomCode);
-            setupConnection(connection);
+            setupConnection(connection, false); // false = we are guest
         });
     }
     
-    // Setup connection events
-    function setupConnection(conn) {
+    // Setup connection
+    function setupConnection(conn, isHost) {
         conn.on('open', () => {
-            document.getElementById('status').innerText = '✅ Connected!';
-            document.getElementById('messages').innerText += '\n\nConnected successfully! You can now send messages.';
+            document.getElementById('status').innerHTML = `✅ Connected to game!<br>Playing as: ${myName}`;
+            document.getElementById('roomCodeDisplay').innerHTML = '';
+            document.getElementById('messages').innerText = `Connection successful!\nYou are ${isHost ? "the Host" : "the Guest"}.`;
             
-            // Send a test message
-            conn.send("Hello from the other player!");
+            // Send a test message with name
+            conn.send({
+                type: "player_joined",
+                name: myName
+            });
         });
     
         conn.on('data', (data) => {
-            document.getElementById('messages').innerText += `\nReceived: ${data}`;
+            document.getElementById('messages').innerText += `\nReceived: ${JSON.stringify(data)}`;
         });
     
         conn.on('close', () => {
-            document.getElementById('status').innerText = '❌ Disconnected';
+            document.getElementById('status').innerHTML = '❌ Disconnected';
         });
     }
     </script>
+
+    
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
