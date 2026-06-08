@@ -4,93 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Games - Multiplayer</title>
-    
-    <!-- PeerJS Library -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #f0f4f8;
-            margin: 0;
-            padding: 20px;
-        }
+        body { font-family: system-ui, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
     <h1 style="text-align: center;">🎮 My Multiplayer Games</h1>
 
-    <!-- ========== MULTIPLAYER LOBBY ========== -->
-    <div style="max-width: 500px; margin: 40px auto; padding: 25px; border: 2px solid #4a90e2; border-radius: 12px; background: #f8fbff;">
-        <h2 style="text-align: center; color: #2c3e50;">🎮 Create or Join a Game</h2>
+    <!-- LOBBY -->
+    <div id="lobby" style="max-width: 500px; margin: 40px auto; padding: 25px; border: 2px solid #4a90e2; border-radius: 12px; background: #f8fbff;">
+        <h2 style="text-align: center;">🎮 Create or Join a Game</h2>
 
-        <!-- Player Name -->
         <div style="margin-bottom: 15px;">
             <label style="font-weight: bold;">Your Name:</label><br>
             <input type="text" id="playerName" value="Frankie" style="width: 100%; padding: 10px; font-size: 16px;">
         </div>
 
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <button onclick="createRoom()" 
-                    style="flex: 1; padding: 14px; font-size: 17px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer;">
-                Create Room
-            </button>
-
-            <button onclick="showJoinUI()" 
-                    style="flex: 1; padding: 14px; font-size: 17px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer;">
-                Join Room
-            </button>
+            <button onclick="createRoom()" style="flex: 1; padding: 14px; font-size: 17px; background: #27ae60; color: white; border: none; border-radius: 8px;">Create Room</button>
+            <button onclick="showJoinUI()" style="flex: 1; padding: 14px; font-size: 17px; background: #3498db; color: white; border: none; border-radius: 8px;">Join Room</button>
         </div>
 
-        <!-- Join Section -->
         <div id="joinUI" style="display: none; margin-bottom: 15px;">
-            <input type="text" id="roomCodeInput" placeholder="Enter Room Code (Peer ID)" 
-                   style="width: 100%; padding: 10px; font-size: 16px; margin-bottom: 8px;">
-            <button onclick="joinRoom()" 
-                    style="width: 100%; padding: 12px; font-size: 16px; background: #2980b9; color: white; border: none; border-radius: 8px;">
-                Join Game
-            </button>
+            <input type="text" id="roomCodeInput" placeholder="Enter Room Code" style="width: 100%; padding: 10px; font-size: 16px; margin-bottom: 8px;">
+            <button onclick="joinRoom()" style="width: 100%; padding: 12px; font-size: 16px; background: #2980b9; color: white; border: none; border-radius: 8px;">Join Game</button>
         </div>
 
-        <!-- Status -->
-        <div id="status" style="margin-top: 15px; padding: 14px; background: white; border-radius: 8px; min-height: 55px; font-weight: bold; text-align: center; font-size: 15px;"></div>
+        <div id="status" style="margin-top: 15px; padding: 14px; background: white; border-radius: 8px; min-height: 55px; font-weight: bold; text-align: center;"></div>
         
-        <!-- Room Code + Copy Button -->
         <div style="margin-top: 12px; text-align: center;">
             <div id="roomCodeDisplay" style="font-size: 20px; font-weight: bold; color: #27ae60; margin-bottom: 8px;"></div>
-            <button id="copyBtn" onclick="copyRoomCode()" 
-                    style="display: none; padding: 8px 16px; background: #4a90e2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                📋 Copy Room Code
-            </button>
+            <button id="copyBtn" onclick="copyRoomCode()" style="display: none; padding: 8px 16px; background: #4a90e2; color: white; border: none; border-radius: 6px;">📋 Copy Room Code</button>
         </div>
 
         <div id="messages" style="margin-top: 15px; padding: 12px; background: #fff; border-radius: 6px; font-family: monospace; white-space: pre-wrap; min-height: 50px;"></div>
     </div>
-    <!-- ========== END LOBBY ========== -->
+
+    <!-- GAME AREA (Hidden until connected) -->
+    <div id="gameArea" class="hidden" style="max-width: 600px; margin: 40px auto; padding: 20px; background: white; border-radius: 12px; border: 2px solid #27ae60;">
+        <h2 style="text-align: center;">Game Area</h2>
+        <p style="text-align: center;">Connected! Game logic will go here.</p>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="startGame()" style="padding: 12px 24px; font-size: 16px; background: #27ae60; color: white; border: none; border-radius: 8px;">Start Game</button>
+        </div>
+
+        <div id="gameStatus" style="margin-top: 20px; text-align: center; font-weight: bold;"></div>
+    </div>
 
     <script>
         let peer;
         let connection;
         let myName = "";
         let currentRoomCode = "";
+        let isHost = false;
 
-        // ============ CREATE ROOM (Host) ============
+        // ============ CREATE ROOM ============
         function createRoom() {
             myName = document.getElementById('playerName').value.trim() || "Host";
+            isHost = true;
 
             peer = new Peer();
 
             peer.on('open', (id) => {
                 currentRoomCode = id;
-
-                document.getElementById('status').innerHTML = `✅ Room Created!<br>Share this code with your friend:`;
+                document.getElementById('status').innerHTML = `✅ Room Created`;
                 document.getElementById('roomCodeDisplay').innerHTML = `<strong>${id}</strong>`;
                 document.getElementById('copyBtn').style.display = 'inline-block';
 
-                document.getElementById('messages').innerText = `Waiting for someone to join...\nYour name: ${myName}`;
-
-                // Listen for incoming connections
                 peer.on('connection', (conn) => {
                     connection = conn;
                     setupConnection(conn, true);
@@ -98,41 +82,24 @@
             });
         }
 
-        // ============ COPY ROOM CODE ============
         function copyRoomCode() {
-            if (!currentRoomCode) return;
-
             navigator.clipboard.writeText(currentRoomCode).then(() => {
                 const btn = document.getElementById('copyBtn');
-                const originalText = btn.innerText;
                 btn.innerText = "✅ Copied!";
-                
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                }, 1500);
-            }).catch(() => {
-                // Fallback
-                prompt("Copy this code:", currentRoomCode);
+                setTimeout(() => btn.innerText = "📋 Copy Room Code", 1500);
             });
         }
 
-        // ============ SHOW JOIN UI ============
         function showJoinUI() {
             document.getElementById('joinUI').style.display = 'block';
         }
 
-        // ============ JOIN ROOM (Guest) ============
         function joinRoom() {
             myName = document.getElementById('playerName').value.trim() || "Guest";
             const roomCode = document.getElementById('roomCodeInput').value.trim();
-
-            if (!roomCode) {
-                alert("Please enter the room code");
-                return;
-            }
+            if (!roomCode) return alert("Enter room code");
 
             peer = new Peer();
-
             peer.on('open', () => {
                 connection = peer.connect(roomCode);
                 setupConnection(connection, false);
@@ -140,26 +107,50 @@
         }
 
         // ============ CONNECTION HANDLER ============
-        function setupConnection(conn, isHost) {
-            conn.on('open', () => {
-                document.getElementById('status').innerHTML = `✅ Connected!<br>Playing as: ${myName}`;
-                document.getElementById('roomCodeDisplay').innerHTML = `Room Code: <strong>${currentRoomCode || conn.peer}</strong>`;
-                document.getElementById('copyBtn').style.display = 'none';
-                document.getElementById('messages').innerText = `Connection successful!`;
+        function setupConnection(conn, host) {
+            isHost = host;
 
+            conn.on('open', () => {
+                // Hide lobby, show game area
+                document.getElementById('lobby').classList.add('hidden');
+                document.getElementById('gameArea').classList.remove('hidden');
+
+                document.getElementById('gameStatus').innerText = `Connected as ${myName} (${isHost ? "Host" : "Guest"})`;
+
+                // Send player info
                 conn.send({
                     type: "player_joined",
-                    name: myName
+                    name: myName,
+                    isHost: isHost
                 });
             });
 
             conn.on('data', (data) => {
-                document.getElementById('messages').innerText += `\nReceived: ${JSON.stringify(data)}`;
+                handleIncomingData(data);
             });
 
             conn.on('close', () => {
-                document.getElementById('status').innerHTML = '❌ Disconnected';
+                document.getElementById('gameStatus').innerText = "Disconnected";
             });
+        }
+
+        function handleIncomingData(data) {
+            console.log("Received:", data);
+            
+            if (data.type === "player_joined") {
+                document.getElementById('gameStatus').innerText = `${data.name} joined the game!`;
+            }
+        }
+
+        // ============ START GAME (Host only for now) ============
+        function startGame() {
+            if (!isHost || !connection) {
+                alert("Only the host can start the game");
+                return;
+            }
+
+            connection.send({ type: "start_game" });
+            document.getElementById('gameStatus').innerText = "Game Started!";
         }
     </script>
 
