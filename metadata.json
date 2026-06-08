@@ -1,0 +1,6 @@
+{
+  "name": "Paper Numbers Game",
+  "description": "A real-time multiplayer 2-player paper game where one player rushes to find a number while the other circles dots on their phone.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

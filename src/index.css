@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-bg: #F4F1EA;
+  --color-brand-text: #2D2D2D;
+  --color-brand-dark: #1A1A1A;
+  --color-brand-red: #E63946;
+  --color-brand-gray: #D1D1D1;
+  --color-brand-gray-light: #EAEAEA;
+  --color-brand-gray-text: #6B6B6B;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  background-color: var(--color-brand-bg);
+  color: var(--color-brand-text);
+  overflow-x: hidden;
+}
