@@ -15,7 +15,7 @@
             text-align: center;
         }
         .game-container {
-            max-width: 600px;
+            max-width: 620px;
             margin: 40px auto;
             background: #2a2a3a;
             border: 3px solid #4ade80;
@@ -41,6 +41,34 @@
             padding: 15px;
             background: #1e1e2e;
             border-radius: 8px;
+        }
+        #dotGrid {
+            display: grid;
+            grid-template-columns: repeat(8, 42px);
+            gap: 8px;
+            justify-content: center;
+            margin: 20px auto;
+        }
+        .dot {
+            width: 42px;
+            height: 42px;
+            background: #4b5563;
+            border-radius: 50%;
+            border: 3px solid #374151;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .dot:hover {
+            background: #6b7280;
+            transform: scale(1.1);
+        }
+        .dot.marked {
+            background: #22c55e;
+            border-color: #16a34a;
+            box-shadow: 0 0 12px #22c55e;
+        }
+        .dot.marked:hover {
+            transform: scale(1);
         }
     </style>
 </head>
@@ -86,7 +114,13 @@
         
         <div id="gameStatus"></div>
         
-        <div id="actionArea" style="margin-top: 25px;"></div>
+        <div id="actionArea" style="margin-top: 20px;"></div>
+        
+        <!-- 8x8 DOT GRID -->
+        <div id="dotGridContainer" style="display: none; margin-top: 30px;">
+            <h3 style="margin-bottom: 10px;">Dot Grid <span id="dotCounter">(0 / 64)</span></h3>
+            <div id="dotGrid"></div>
+        </div>
     </div>
 
     <script>
@@ -97,6 +131,7 @@
         let isHost = false;
         let gameState = null;
         let myRole = null;
+        let dotsMarked = 0;
 
         function createRoom() {
             myName = document.getElementById('playerName').value.trim() || "Host";
@@ -156,9 +191,11 @@
                 myRole = data.role;
                 updateGameUI();
             }
+            if (data.type === "circle_dot") {
+                markDot(data.index, false); // false = don't send again
+            }
             if (data.type === "action") {
-                document.getElementById('gameStatus').innerText = 
-                    `${data.player} did: ${data.action}`;
+                document.getElementById('gameStatus').innerText = `${data.player} did: ${data.action}`;
             }
         }
 
@@ -171,10 +208,11 @@
             gameState = {
                 status: "playing",
                 targetNumber: Math.floor(Math.random() * 100) + 1,
-                players: {}
+                dots: Array(64).fill(false)
             };
 
             myRole = "finder";
+            gameState.players = {};
             gameState.players[myName] = { name: myName, role: "finder" };
 
             connection.send({ type: "game_state", state: gameState });
@@ -201,16 +239,81 @@
             const actionArea = document.getElementById('actionArea');
             actionArea.innerHTML = '';
 
+            // Show dot grid
+            document.getElementById('dotGridContainer').style.display = 'block';
+            createDotGrid();
+
             if (myRole === "circler") {
                 const btn = document.createElement('button');
                 btn.innerText = "Circle a Dot";
-                btn.onclick = () => performAction("circle_dot");
+                btn.onclick = () => {
+                    // This button is now just for show — clicking dots does the action
+                    document.getElementById('gameStatus').innerText = "Click any dot on the grid!";
+                };
                 actionArea.appendChild(btn);
             } else if (myRole === "finder") {
                 const btn = document.createElement('button');
                 btn.innerText = "I Found the Number!";
                 btn.onclick = () => performAction("number_found");
                 actionArea.appendChild(btn);
+            }
+        }
+
+        function createDotGrid() {
+            const grid = document.getElementById('dotGrid');
+            grid.innerHTML = '';
+            dotsMarked = 0;
+
+            for (let i = 0; i < 64; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                dot.dataset.index = i;
+
+                // Mark already marked dots if gameState exists
+                if (gameState && gameState.dots && gameState.dots[i]) {
+                    dot.classList.add('marked');
+                    dotsMarked++;
+                }
+
+                dot.onclick = () => {
+                    if (myRole !== "circler") {
+                        alert("Only the Circler can mark dots!");
+                        return;
+                    }
+                    if (dot.classList.contains('marked')) return;
+
+                    dot.classList.add('marked');
+                    dotsMarked++;
+                    updateDotCounter();
+
+                    // Send to other player
+                    if (connection) {
+                        connection.send({
+                            type: "circle_dot",
+                            index: i
+                        });
+                    }
+                };
+
+                grid.appendChild(dot);
+            }
+            updateDotCounter();
+        }
+
+        function markDot(index, send = true) {
+            const grid = document.getElementById('dotGrid');
+            const dot = grid.querySelector(`[data-index="${index}"]`);
+            if (dot && !dot.classList.contains('marked')) {
+                dot.classList.add('marked');
+                dotsMarked++;
+                updateDotCounter();
+            }
+        }
+
+        function updateDotCounter() {
+            const counter = document.getElementById('dotCounter');
+            if (counter) {
+                counter.innerText = `(${dotsMarked} / 64)`;
             }
         }
 
@@ -224,7 +327,7 @@
             document.getElementById('gameStatus').innerText = `You did: ${action}`;
         }
 
-        // Make handleIncomingData available globally for connection
+        // Make handleIncomingData available
         window.handleIncomingData = handleIncomingData;
     </script>
 </body>
