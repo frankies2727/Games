@@ -3,68 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2 Player Battle</title>
+    <title>P2P GitHub Pages Game</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #222; color: #fff; }
-        .arena { display: flex; height: 300px; margin: 20px auto; width: 80%; border: 4px solid #fff; }
-        #p1-side { background: #ff4757; flex: 50%; transition: flex 0.1s; }
-        #p2-side { background: #2ed573; flex: 50%; transition: flex 0.1s; }
-        .controls { display: flex; justify-content: space-around; font-size: 1.2rem; }
+        body { font-family: sans-serif; text-align: center; background: #222; color: #fff; margin: 0; padding: 20px; }
+        #setup { margin-bottom: 20px; background: #333; padding: 15px; border-radius: 8px; display: inline-block; }
+        input, button { padding: 8px; font-size: 16px; margin: 5px; border-radius: 4px; border: none; }
+        button { background: #28a745; color: white; cursor: pointer; }
+        button:hover { background: #218838; }
+        canvas { background: #000; border: 3px solid #fff; display: block; margin: 20px auto; }
+        #status { color: #ffc107; font-weight: bold; }
     </style>
+    <!-- Include PeerJS Library -->
+    <script src="https://unpkg.com"></script>
 </head>
 <body>
-    <h1>2 Player Territory Battle</h1>
-    <p>First to dominate the screen wins!</p>
+
+    <h1>Online P2P Multi-player Game</h1>
     
-    <div class="arena">
-        <div id="p1-side"></div>
-        <div id="p2-side"></div>
+    <div id="setup">
+        <p>Your ID: <span id="my-id">Generating...</span></p>
+        <input type="text" id="peer-id-input" placeholder="Paste Friend's ID here">
+        <button id="connect-btn">Connect to Friend</button>
+        <p id="status">Waiting for connection...</p>
     </div>
 
-    <div class="controls">
-        <div>🔴 Player 1: Tap <strong>"W"</strong></div>
-        <div>🟢 Player 2: Tap <strong>"ArrowUp"</strong></div>
-    </div>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
 
-    <h2 id="winner"></h2>
-
-    <script>
-        let p1Score = 50;
-        const p1Side = document.getElementById('p1-side');
-        const p2Side = document.getElementById('p2-side');
-        const winnerText = document.getElementById('winner');
-        let gameOver = false;
-
-        window.addEventListener('keydown', (e) => {
-            if (gameOver) return;
-
-            if (e.key === 'w' || e.key === 'W') {
-                p1Score += 2;
-            } else if (e.key === 'ArrowUp') {
-                p1Score -= 2;
-            }
-
-            p1Side.style.flex = `${p1Score}%`;
-            p2Side.style.flex = `${100 - p1Score}%`;
-
-            if (p1Score >= 100) {
-                winnerText.innerText = "🔴 Player 1 Wins! Press space to restart.";
-                gameOver = true;
-            } else if (p1Score <= 0) {
-                winnerText.innerText = "🟢 Player 2 Wins! Press space to restart.";
-                gameOver = true;
-            }
-        });
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === ' ' && gameOver) {
-                p1Score = 50;
-                p1Side.style.flex = '50%';
-                p2Side.style.flex = '50%';
-                winnerText.innerText = '';
-                gameOver = false;
-            }
-        });
-    </script>
+    <script src="game.js"></script>
 </body>
 </html>
