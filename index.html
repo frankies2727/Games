@@ -221,11 +221,15 @@
             document.getElementById('connectedText').style.display = 'none';
             document.getElementById('startBtn').style.display = 'none';
 
-            updateGameUI();   // This now handles everything for the host
+            updateGameUI();
         }
 
         function updateGameUI() {
             if (!gameState) return;
+
+            // Hide old placeholder and Start button (this was missing for guest)
+            document.getElementById('connectedText').style.display = 'none';
+            document.getElementById('startBtn').style.display = 'none';
 
             let text = `Status: ${gameState.status}`;
             if (gameState.targetNumber) text += ` | Target: ${gameState.targetNumber}`;
@@ -250,7 +254,7 @@
                 actionArea.appendChild(btn);
             }
 
-            // Show and create the grid
+            // Show and build the grid
             document.getElementById('dotGridContainer').style.display = 'block';
             createDotGrid();
         }
