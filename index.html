@@ -3,327 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Multiplayer Games</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <title>2 Player Battle</title>
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #1e1e2e;
-            color: #e0e0e0;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .game-container {
-            max-width: 620px;
-            margin: 40px auto;
-            background: #2a2a3a;
-            border: 3px solid #4ade80;
-            border-radius: 16px;
-            padding: 30px;
-        }
-        .hidden { display: none !important; }
-        button {
-            background: #4ade80;
-            color: #1e1e2e;
-            border: none;
-            padding: 14px 28px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 12px;
-            cursor: pointer;
-            margin: 10px;
-        }
-        button:hover { background: #22c55e; }
-        #gameStatus {
-            font-size: 18px;
-            margin: 20px 0;
-            padding: 15px;
-            background: #1e1e2e;
-            border-radius: 8px;
-        }
-        #dotGrid {
-            display: grid;
-            grid-template-columns: repeat(8, 42px);
-            gap: 8px;
-            justify-content: center;
-            margin: 20px auto;
-            padding: 15px;
-            background: #1e1e2e;
-            border-radius: 12px;
-            border: 2px solid #4b5563;
-        }
-        .dot {
-            width: 42px;
-            height: 42px;
-            background: #4b5563;
-            border-radius: 50%;
-            border: 3px solid #374151;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .dot:hover {
-            background: #6b7280;
-            transform: scale(1.1);
-        }
-        .dot.marked {
-            background: #22c55e;
-            border-color: #16a34a;
-            box-shadow: 0 0 15px #22c55e;
-        }
+        body { font-family: sans-serif; text-align: center; background: #222; color: #fff; }
+        .arena { display: flex; height: 300px; margin: 20px auto; width: 80%; border: 4px solid #fff; }
+        #p1-side { background: #ff4757; flex: 50%; transition: flex 0.1s; }
+        #p2-side { background: #2ed573; flex: 50%; transition: flex 0.1s; }
+        .controls { display: flex; justify-content: space-around; font-size: 1.2rem; }
     </style>
 </head>
 <body>
-
-    <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 30px;">
-        <span style="font-size: 48px;">🎮</span>
-        <h1 style="margin: 0; font-size: 42px;">My Multiplayer Games</h1>
+    <h1>2 Player Territory Battle</h1>
+    <p>First to dominate the screen wins!</p>
+    
+    <div class="arena">
+        <div id="p1-side"></div>
+        <div id="p2-side"></div>
     </div>
 
-    <!-- LOBBY -->
-    <div id="lobby" class="game-container">
-        <h2>Create or Join a Game</h2>
-
-        <div style="margin: 20px 0;">
-            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Your Name:</label>
-            <input type="text" id="playerName" value="Player1" style="width: 100%; padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #4ade80; background: #1e1e2e; color: #e0e0e0;">
-        </div>
-
-        <div style="display: flex; gap: 15px; justify-content: center; margin: 25px 0;">
-            <button onclick="createRoom()" style="flex: 1;">Create Room</button>
-            <button onclick="showJoinUI()" style="flex: 1; background: #3b82f6;">Join Room</button>
-        </div>
-
-        <div id="joinUI" style="display: none; margin-top: 15px;">
-            <input type="text" id="roomCodeInput" placeholder="Enter Room Code" 
-                   style="width: 100%; padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #3b82f6; background: #1e1e2e; color: #e0e0e0; margin-bottom: 10px;">
-            <button onclick="joinRoom()" style="width: 100%; background: #3b82f6;">Join Game</button>
-        </div>
-
-        <div id="status" style="margin-top: 20px; font-size: 18px; min-height: 30px;"></div>
-        <div id="roomCodeDisplay" style="font-size: 28px; font-weight: bold; color: #4ade80; margin: 15px 0;"></div>
-        <button id="copyBtn" onclick="copyRoomCode()" style="display: none; background: #3b82f6; color: white; padding: 10px 20px;">📋 Copy Room Code</button>
+    <div class="controls">
+        <div>🔴 Player 1: Tap <strong>"W"</strong></div>
+        <div>🟢 Player 2: Tap <strong>"ArrowUp"</strong></div>
     </div>
 
-    <!-- GAME AREA -->
-    <div id="gameArea" class="game-container hidden">
-        <h2>Game Area</h2>
-        
-        <p id="connectedText">Connected! Game logic will go here.</p>
-        
-        <button id="startBtn" onclick="startGame()">Start Game</button>
-        
-        <div id="gameStatus"></div>
-        
-        <div id="actionArea" style="margin-top: 20px;"></div>
-        
-        <!-- DOT GRID -->
-        <div id="dotGridContainer" style="display: none; margin-top: 25px;">
-            <h3 style="margin-bottom: 12px;">Dot Grid <span id="dotCounter">(0 / 64)</span></h3>
-            <div id="dotGrid"></div>
-        </div>
-    </div>
+    <h2 id="winner"></h2>
 
     <script>
-        let peer;
-        let connection;
-        let myName = "";
-        let currentRoomCode = "";
-        let isHost = false;
-        let gameState = null;
-        let myRole = null;
-        let dotsMarked = 0;
+        let p1Score = 50;
+        const p1Side = document.getElementById('p1-side');
+        const p2Side = document.getElementById('p2-side');
+        const winnerText = document.getElementById('winner');
+        let gameOver = false;
 
-        function createRoom() {
-            myName = document.getElementById('playerName').value.trim() || "Host";
-            isHost = true;
+        window.addEventListener('keydown', (e) => {
+            if (gameOver) return;
 
-            peer = new Peer();
-            peer.on('open', (id) => {
-                currentRoomCode = id;
-                document.getElementById('status').innerHTML = `✅ Room created! Share this code:`;
-                document.getElementById('roomCodeDisplay').innerHTML = `<strong>${id}</strong>`;
-                document.getElementById('copyBtn').style.display = 'inline-block';
-
-                peer.on('connection', (conn) => {
-                    connection = conn;
-                    setupConnection(conn, true);
-                });
-            });
-        }
-
-        function copyRoomCode() {
-            navigator.clipboard.writeText(currentRoomCode).then(() => {
-                const btn = document.getElementById('copyBtn');
-                btn.innerText = "✅ Copied!";
-                setTimeout(() => { btn.innerText = "📋 Copy Room Code"; }, 1500);
-            });
-        }
-
-        function showJoinUI() {
-            document.getElementById('joinUI').style.display = 'block';
-        }
-
-        function joinRoom() {
-            myName = document.getElementById('playerName').value.trim() || "Guest";
-            const code = document.getElementById('roomCodeInput').value.trim();
-            if (!code) return alert("Please enter the room code");
-
-            peer = new Peer();
-            peer.on('open', () => {
-                connection = peer.connect(code);
-                setupConnection(connection, false);
-            });
-        }
-
-        function setupConnection(conn, host) {
-            isHost = host;
-            document.getElementById('lobby').classList.add('hidden');
-            document.getElementById('gameArea').classList.remove('hidden');
-            document.getElementById('gameStatus').innerText = `Connected as ${myName}`;
-        }
-
-        function handleIncomingData(data) {
-            if (data.type === "game_state") {
-                gameState = data.state;
-                updateGameUI();
-            }
-            if (data.type === "role_update") {
-                myRole = data.role;
-                updateGameUI();
-            }
-            if (data.type === "circle_dot") {
-                markDot(data.index);
-            }
-            if (data.type === "action") {
-                document.getElementById('gameStatus').innerText = `${data.player} did: ${data.action}`;
-            }
-        }
-
-        function startGame() {
-            if (!isHost || !connection) {
-                alert("Only the host can start the game");
-                return;
+            if (e.key === 'w' || e.key === 'W') {
+                p1Score += 2;
+            } else if (e.key === 'ArrowUp') {
+                p1Score -= 2;
             }
 
-            gameState = {
-                status: "playing",
-                targetNumber: Math.floor(Math.random() * 100) + 1,
-                dots: Array(64).fill(false)
-            };
+            p1Side.style.flex = `${p1Score}%`;
+            p2Side.style.flex = `${100 - p1Score}%`;
 
-            myRole = "finder";
-
-            connection.send({ type: "game_state", state: gameState });
-            connection.send({ type: "role_update", role: "circler" });
-
-            // Hide old UI
-            document.getElementById('connectedText').style.display = 'none';
-            document.getElementById('startBtn').style.display = 'none';
-
-            updateGameUI();
-        }
-
-        function updateGameUI() {
-            if (!gameState) return;
-
-            // Hide old placeholder and Start button (this was missing for guest)
-            document.getElementById('connectedText').style.display = 'none';
-            document.getElementById('startBtn').style.display = 'none';
-
-            let text = `Status: ${gameState.status}`;
-            if (gameState.targetNumber) text += ` | Target: ${gameState.targetNumber}`;
-            if (myRole) text += ` | You are the ${myRole.toUpperCase()}`;
-
-            document.getElementById('gameStatus').innerText = text;
-
-            const actionArea = document.getElementById('actionArea');
-            actionArea.innerHTML = '';
-
-            if (myRole === "circler") {
-                const btn = document.createElement('button');
-                btn.innerText = "Circle a Dot (click the grid)";
-                btn.onclick = () => {
-                    document.getElementById('gameStatus').innerText = "Click any dot on the grid!";
-                };
-                actionArea.appendChild(btn);
-            } else if (myRole === "finder") {
-                const btn = document.createElement('button');
-                btn.innerText = "I Found the Number!";
-                btn.onclick = () => performAction("number_found");
-                actionArea.appendChild(btn);
+            if (p1Score >= 100) {
+                winnerText.innerText = "🔴 Player 1 Wins! Press space to restart.";
+                gameOver = true;
+            } else if (p1Score <= 0) {
+                winnerText.innerText = "🟢 Player 2 Wins! Press space to restart.";
+                gameOver = true;
             }
+        });
 
-            // Show and build the grid
-            document.getElementById('dotGridContainer').style.display = 'block';
-            createDotGrid();
-        }
-
-        function createDotGrid() {
-            const grid = document.getElementById('dotGrid');
-            grid.innerHTML = '';
-            dotsMarked = 0;
-
-            for (let i = 0; i < 64; i++) {
-                const dot = document.createElement('div');
-                dot.className = 'dot';
-                dot.dataset.index = i;
-
-                if (gameState && gameState.dots && gameState.dots[i]) {
-                    dot.classList.add('marked');
-                    dotsMarked++;
-                }
-
-                dot.onclick = () => {
-                    if (myRole !== "circler") {
-                        alert("Only the Circler can mark dots!");
-                        return;
-                    }
-                    if (dot.classList.contains('marked')) return;
-
-                    dot.classList.add('marked');
-                    dotsMarked++;
-                    updateDotCounter();
-
-                    if (connection) {
-                        connection.send({
-                            type: "circle_dot",
-                            index: i
-                        });
-                    }
-                };
-
-                grid.appendChild(dot);
+        window.addEventListener('keydown', (e) => {
+            if (e.key === ' ' && gameOver) {
+                p1Score = 50;
+                p1Side.style.flex = '50%';
+                p2Side.style.flex = '50%';
+                winnerText.innerText = '';
+                gameOver = false;
             }
-            updateDotCounter();
-        }
-
-        function markDot(index) {
-            const grid = document.getElementById('dotGrid');
-            if (!grid) return;
-
-            const dot = grid.querySelector(`[data-index="${index}"]`);
-            if (dot && !dot.classList.contains('marked')) {
-                dot.classList.add('marked');
-                dotsMarked++;
-                updateDotCounter();
-            }
-        }
-
-        function updateDotCounter() {
-            const counter = document.getElementById('dotCounter');
-            if (counter) counter.innerText = `(${dotsMarked} / 64)`;
-        }
-
-        function performAction(action) {
-            if (!connection) return;
-            connection.send({
-                type: "action",
-                player: myName,
-                action: action
-            });
-            document.getElementById('gameStatus').innerText = `You did: ${action}`;
-        }
+        });
     </script>
 </body>
 </html>
