@@ -31,4 +31,13 @@
 
     <script src="game.js"></script>
 </body>
+// Error catching listener
+peer.on('error', (err) => {
+    console.error(err);
+    statusText.textContent = "Error: " + err.type + " - " + err.message;
+    statusText.style.color = "#ff4d4d";
+});
+
+
+        
 </html>
