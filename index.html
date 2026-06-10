@@ -48,6 +48,10 @@
             gap: 8px;
             justify-content: center;
             margin: 20px auto;
+            padding: 15px;
+            background: #1e1e2e;
+            border-radius: 12px;
+            border: 2px solid #4b5563;
         }
         .dot {
             width: 42px;
@@ -65,10 +69,7 @@
         .dot.marked {
             background: #22c55e;
             border-color: #16a34a;
-            box-shadow: 0 0 12px #22c55e;
-        }
-        .dot.marked:hover {
-            transform: scale(1);
+            box-shadow: 0 0 15px #22c55e;
         }
     </style>
 </head>
@@ -116,9 +117,9 @@
         
         <div id="actionArea" style="margin-top: 20px;"></div>
         
-        <!-- 8x8 DOT GRID -->
-        <div id="dotGridContainer" style="display: none; margin-top: 30px;">
-            <h3 style="margin-bottom: 10px;">Dot Grid <span id="dotCounter">(0 / 64)</span></h3>
+        <!-- DOT GRID -->
+        <div id="dotGridContainer" style="display: none; margin-top: 25px;">
+            <h3 style="margin-bottom: 12px;">Dot Grid <span id="dotCounter">(0 / 64)</span></h3>
             <div id="dotGrid"></div>
         </div>
     </div>
@@ -192,7 +193,7 @@
                 updateGameUI();
             }
             if (data.type === "circle_dot") {
-                markDot(data.index, false); // false = don't send again
+                markDot(data.index);
             }
             if (data.type === "action") {
                 document.getElementById('gameStatus').innerText = `${data.player} did: ${data.action}`;
@@ -212,17 +213,18 @@
             };
 
             myRole = "finder";
-            gameState.players = {};
-            gameState.players[myName] = { name: myName, role: "finder" };
 
             connection.send({ type: "game_state", state: gameState });
             connection.send({ type: "role_update", role: "circler" });
 
-            // Hide old UI
+            // Hide old elements
             document.getElementById('connectedText').style.display = 'none';
             document.getElementById('startBtn').style.display = 'none';
 
-            updateGameUI();
+            // Force show grid immediately
+            document.getElementById('dotGridContainer').style.display = 'block';
+            createDotGrid();
+
             document.getElementById('gameStatus').innerText = 
                 `Game Started! Target: ${gameState.targetNumber} | You are the Finder`;
         }
@@ -239,16 +241,11 @@
             const actionArea = document.getElementById('actionArea');
             actionArea.innerHTML = '';
 
-            // Show dot grid
-            document.getElementById('dotGridContainer').style.display = 'block';
-            createDotGrid();
-
             if (myRole === "circler") {
                 const btn = document.createElement('button');
-                btn.innerText = "Circle a Dot";
+                btn.innerText = "Circle a Dot (click the grid)";
                 btn.onclick = () => {
-                    // This button is now just for show — clicking dots does the action
-                    document.getElementById('gameStatus').innerText = "Click any dot on the grid!";
+                    document.getElementById('gameStatus').innerText = "Click dots on the grid to mark them!";
                 };
                 actionArea.appendChild(btn);
             } else if (myRole === "finder") {
@@ -257,6 +254,9 @@
                 btn.onclick = () => performAction("number_found");
                 actionArea.appendChild(btn);
             }
+
+            // Make sure grid is visible
+            document.getElementById('dotGridContainer').style.display = 'block';
         }
 
         function createDotGrid() {
@@ -269,7 +269,6 @@
                 dot.className = 'dot';
                 dot.dataset.index = i;
 
-                // Mark already marked dots if gameState exists
                 if (gameState && gameState.dots && gameState.dots[i]) {
                     dot.classList.add('marked');
                     dotsMarked++;
@@ -286,7 +285,6 @@
                     dotsMarked++;
                     updateDotCounter();
 
-                    // Send to other player
                     if (connection) {
                         connection.send({
                             type: "circle_dot",
@@ -300,8 +298,10 @@
             updateDotCounter();
         }
 
-        function markDot(index, send = true) {
+        function markDot(index) {
             const grid = document.getElementById('dotGrid');
+            if (!grid) return;
+
             const dot = grid.querySelector(`[data-index="${index}"]`);
             if (dot && !dot.classList.contains('marked')) {
                 dot.classList.add('marked');
@@ -312,9 +312,7 @@
 
         function updateDotCounter() {
             const counter = document.getElementById('dotCounter');
-            if (counter) {
-                counter.innerText = `(${dotsMarked} / 64)`;
-            }
+            if (counter) counter.innerText = `(${dotsMarked} / 64)`;
         }
 
         function performAction(action) {
@@ -326,9 +324,6 @@
             });
             document.getElementById('gameStatus').innerText = `You did: ${action}`;
         }
-
-        // Make handleIncomingData available
-        window.handleIncomingData = handleIncomingData;
     </script>
 </body>
 </html>
