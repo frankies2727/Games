@@ -217,16 +217,11 @@
             connection.send({ type: "game_state", state: gameState });
             connection.send({ type: "role_update", role: "circler" });
 
-            // Hide old elements
+            // Hide old UI
             document.getElementById('connectedText').style.display = 'none';
             document.getElementById('startBtn').style.display = 'none';
 
-            // Force show grid immediately
-            document.getElementById('dotGridContainer').style.display = 'block';
-            createDotGrid();
-
-            document.getElementById('gameStatus').innerText = 
-                `Game Started! Target: ${gameState.targetNumber} | You are the Finder`;
+            updateGameUI();   // This now handles everything for the host
         }
 
         function updateGameUI() {
@@ -245,7 +240,7 @@
                 const btn = document.createElement('button');
                 btn.innerText = "Circle a Dot (click the grid)";
                 btn.onclick = () => {
-                    document.getElementById('gameStatus').innerText = "Click dots on the grid to mark them!";
+                    document.getElementById('gameStatus').innerText = "Click any dot on the grid!";
                 };
                 actionArea.appendChild(btn);
             } else if (myRole === "finder") {
@@ -255,8 +250,9 @@
                 actionArea.appendChild(btn);
             }
 
-            // Make sure grid is visible
+            // Show and create the grid
             document.getElementById('dotGridContainer').style.display = 'block';
+            createDotGrid();
         }
 
         function createDotGrid() {
