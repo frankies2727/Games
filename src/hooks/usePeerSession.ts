@@ -39,15 +39,19 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     errTimer.current = setTimeout(() => setError(''), 5000);
   }, []);
 
-  // --- Host: persist authoritative state + push to every guest ---
+  // --- Host: persist authoritative state + push a per-viewer view to each ---
+  const viewFor = useCallback(
+    (next: S, viewerId: string): S => (def.redact ? def.redact(next, viewerId) : next),
+    [def],
+  );
+
   const commit = useCallback((next: S) => {
-    stateRef.current = next;
-    setState(next);
-    const msg: NetMessage<S> = { kind: 'state', state: next };
+    stateRef.current = next; // authoritative, unredacted
+    setState(viewFor(next, myIdRef.current));
     for (const c of connsRef.current) {
-      try { c.send(msg); } catch { /* connection closing */ }
+      try { c.send({ kind: 'state', state: viewFor(next, c.peer) } as NetMessage<S>); } catch { /* closing */ }
     }
-  }, []);
+  }, [viewFor]);
 
   const hostSeat = useCallback((pid: string, name: string) => {
     const room = stateRef.current;
@@ -156,7 +160,7 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     peer.on('connection', (c) => {
       connsRef.current.push(c);
       c.on('open', () => {
-        if (stateRef.current) c.send({ kind: 'state', state: stateRef.current } as NetMessage<S>);
+        if (stateRef.current) c.send({ kind: 'state', state: viewFor(stateRef.current, c.peer) } as NetMessage<S>);
       });
       c.on('data', (d) => handleGuestMessage(c, d as NetMessage<S>));
       c.on('close', () => {
