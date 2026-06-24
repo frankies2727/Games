@@ -1,79 +1,134 @@
 import { useEffect, useRef, useState } from 'react';
-import { GameState } from '../types';
+import { BaseState, BoardProps, GameAction, GameDefinition } from '../types';
 import { cn } from '../lib/utils';
 
-interface GameBoardProps {
-  gameState: GameState;
-  myId: string;
-  onCircleDot: (index: number) => void;
-  onNumberFound: (num: number) => void;
+export interface PaperNumbersState extends BaseState {
+  masterSheet: number[]; // 1..100 shuffled
+  targetNumber: number | null;
+  finderId: string | null;
+  playerDots: Record<string, boolean[]>; // 64 booleans per player
+  foundNumbers: number[]; // numbers already claimed this game
 }
 
-export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameBoardProps) {
-  const isMyTurnToFind = gameState.finderId === myId;
-  const opponents = Object.values(gameState.players).filter(p => p.id !== myId);
-  const opponent = opponents[0];
+const pickTarget = (sheet: number[], found: number[]): number | null => {
+  const remaining = sheet.filter((n) => !found.includes(n));
+  if (remaining.length === 0) return null;
+  return remaining[Math.floor(Math.random() * remaining.length)];
+};
 
-  const serverMyDots = gameState.playerDots[myId] || Array(64).fill(false);
-  const opponentDotsInfo = opponent ? (gameState.playerDots[opponent.id] || Array(64).fill(false)) : Array(64).fill(false);
+function createInitialState(roomId: string): PaperNumbersState {
+  const masterSheet = Array.from({ length: 100 }, (_, i) => i + 1);
+  for (let i = masterSheet.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [masterSheet[i], masterSheet[j]] = [masterSheet[j], masterSheet[i]];
+  }
+  return {
+    roomId,
+    status: 'waiting',
+    players: {},
+    winnerId: null,
+    masterSheet,
+    targetNumber: null,
+    finderId: null,
+    playerDots: {},
+    foundNumbers: [],
+  };
+}
 
-  // Optimistic overlay: dots fill instantly on tap, then reconcile against the
-  // server broadcast. Dots only ever go false->true within a game, so merging
-  // (server OR optimistic) can never show a wrong state. This removes the
-  // per-tap network round-trip that made dotting feel laggy/unresponsive.
+function start(state: PaperNumbersState): PaperNumbersState {
+  const ids = Object.keys(state.players);
+  const playerDots: Record<string, boolean[]> = {};
+  for (const pid of ids) playerDots[pid] = Array(64).fill(false);
+  return {
+    ...state,
+    status: 'playing',
+    finderId: ids[0],
+    targetNumber: pickTarget(state.masterSheet, []),
+    foundNumbers: [],
+    playerDots,
+  };
+}
+
+function reducer(state: PaperNumbersState, pid: string, action: GameAction): PaperNumbersState {
+  if (state.status !== 'playing') return state;
+
+  if (action.t === 'find') {
+    const num = action.num as number;
+    if (pid !== state.finderId || num !== state.targetNumber) return state;
+    if (state.foundNumbers.includes(num)) return state;
+    const foundNumbers = [...state.foundNumbers, num];
+    const ids = Object.keys(state.players);
+    const finderId = state.finderId === ids[0] ? ids[1] : ids[0];
+    return { ...state, foundNumbers, finderId, targetNumber: pickTarget(state.masterSheet, foundNumbers) };
+  }
+
+  if (action.t === 'dot') {
+    const index = action.index as number;
+    if (pid === state.finderId) return state;
+    const dots = state.playerDots[pid];
+    if (!dots || index < 0 || index >= dots.length) return state;
+    const next = dots.slice();
+    next[index] = true;
+    const playerDots = { ...state.playerDots, [pid]: next };
+    if (next.every(Boolean)) {
+      return { ...state, playerDots, status: 'gameover', winnerId: pid };
+    }
+    return { ...state, playerDots };
+  }
+
+  return state;
+}
+
+function Board({ state, myId, dispatch }: BoardProps<PaperNumbersState>) {
+  const isMyTurnToFind = state.finderId === myId;
+  const opponent = Object.values(state.players).find((p) => p.id !== myId);
+
+  const serverMyDots = state.playerDots[myId] || Array(64).fill(false);
+  const opponentDots = opponent ? (state.playerDots[opponent.id] || Array(64).fill(false)) : Array(64).fill(false);
+  const found = new Set(state.foundNumbers);
+
+  // Optimistic overlay so a tapped dot fills instantly instead of waiting for
+  // the host's broadcast round-trip. Dots only go false->true within a game,
+  // so merging (host OR optimistic) can never show a wrong state.
   const [optimisticDots, setOptimisticDots] = useState<boolean[]>(() => Array(64).fill(false));
-
   useEffect(() => {
     if (isMyTurnToFind) {
-      // While finding you can't dot; drop any pending optimistic taps so a tap
-      // that landed right as roles swapped can't get stuck "filled".
       setOptimisticDots((prev) => (prev.some(Boolean) ? Array(64).fill(false) : prev));
     } else {
-      // Keep only taps the server hasn't confirmed yet (prevents flicker when
-      // multiple taps are in flight).
       setOptimisticDots((prev) => prev.map((o, i) => o && !serverMyDots[i]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState, isMyTurnToFind]);
+  }, [state, isMyTurnToFind]);
 
   const myDotsInfo = serverMyDots.map((d, i) => d || optimisticDots[i]);
   const myDotsCount = myDotsInfo.filter(Boolean).length;
-  const opponentDotsCount = opponentDotsInfo.filter(Boolean).length;
+  const opponentDotsCount = opponentDots.filter(Boolean).length;
 
-  const handleDotClick = (i: number) => {
+  const handleDot = (i: number) => {
     if (isMyTurnToFind || myDotsInfo[i]) return;
-    setOptimisticDots((prev) => {
-      const next = prev.slice();
-      next[i] = true;
-      return next;
-    });
-    onCircleDot(i);
+    setOptimisticDots((prev) => { const next = prev.slice(); next[i] = true; return next; });
+    dispatch({ t: 'dot', index: i });
   };
 
-  // Immediate tactile feedback for the finder: flash green for a correct claim,
-  // red for a miss, so clicking a number never feels like "nothing happened".
   const [flash, setFlash] = useState<{ i: number; ok: boolean } | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   const handleFind = (num: number, i: number) => {
-    if (!isMyTurnToFind) return;
-    const ok = num === gameState.targetNumber;
+    if (!isMyTurnToFind || found.has(num)) return;
+    const ok = num === state.targetNumber;
     setFlash({ i, ok });
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 450);
-    onNumberFound(num);
+    dispatch({ t: 'find', num });
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F4F1EA] text-[#2D2D2D] font-sans selection:bg-[#EAEAEA] p-4 sm:p-8 max-w-6xl mx-auto w-full">
-
-      {/* Header Section */}
+    <div className="flex flex-col p-4 sm:p-8 max-w-6xl mx-auto w-full">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b-2 border-[#1A1A1A] pb-4 gap-4">
         <div className="flex flex-col">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#1A1A1A]">Paper Numbers</h1>
-          <span className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B]">Room ID: #{gameState.roomId}</span>
+          <span className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B]">Room ID: #{state.roomId}</span>
         </div>
         <div className="flex items-center gap-6 sm:gap-12 w-full md:w-auto justify-between md:justify-end">
           <div className="text-center">
@@ -88,15 +143,13 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
           <div className="text-center">
             <div className="text-[10px] sm:text-xs uppercase font-bold text-[#8B8B8B] mb-1 tracking-widest">Target</div>
             <div className="text-4xl sm:text-5xl font-black text-[#E63946] font-mono leading-none">
-              {gameState.targetNumber ?? '--'}
+              {state.targetNumber ?? '--'}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Game Area */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pb-8">
-
         {/* My Sheet (8x8 Dots) */}
         <div className={cn(
           "col-span-1 lg:col-span-3 bg-white border border-[#D1D1D1] p-4 shadow-[4px_4px_0px_#1A1A1A] flex flex-col transition-opacity duration-300 min-h-[400px]",
@@ -111,7 +164,7 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
               <button
                 key={i}
                 disabled={isMyTurnToFind || circled}
-                onClick={() => handleDotClick(i)}
+                onClick={() => handleDot(i)}
                 className={cn(
                   "aspect-square rounded-full border-2 flex items-center justify-center transition-all duration-75 outline-none touch-manipulation",
                   circled
@@ -140,16 +193,20 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
         )}>
           <div className="bg-white border-2 border-[#1A1A1A] p-2 flex-1 shadow-[8px_8px_0px_#D1D1D1] overflow-hidden">
             <div className="grid grid-cols-10 h-full border border-[#D1D1D1]">
-              {gameState.masterSheet.map((num, i) => {
+              {state.masterSheet.map((num, i) => {
                 const isFlash = flash?.i === i;
+                const claimed = found.has(num);
                 return (
                   <button
                     key={i}
-                    disabled={!isMyTurnToFind}
+                    disabled={!isMyTurnToFind || claimed}
                     onClick={() => handleFind(num, i)}
                     className={cn(
-                      "aspect-square border-[0.5px] border-[#EEEEEE] flex items-center justify-center font-mono text-sm sm:text-base lg:text-lg outline-none transition-colors duration-75 text-[#444] bg-white touch-manipulation",
-                      isMyTurnToFind ? "hover:bg-[#F4F1EA] active:bg-[#D1D1D1]" : "hover:bg-white",
+                      "aspect-square border-[0.5px] border-[#EEEEEE] flex items-center justify-center font-mono text-sm sm:text-base lg:text-lg outline-none transition-colors duration-75 touch-manipulation",
+                      claimed
+                        ? "bg-[#E63946]/15 text-[#E63946] line-through font-bold"
+                        : "text-[#444] bg-white",
+                      isMyTurnToFind && !claimed ? "hover:bg-[#F4F1EA] active:bg-[#D1D1D1]" : "",
                       isFlash && (flash!.ok ? "bg-green-200 text-green-900" : "bg-red-200 text-red-900")
                     )}
                   >
@@ -161,38 +218,36 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
           </div>
           <div className="flex justify-center mt-6">
             <p className="text-[10px] sm:text-xs font-bold text-[#6B6B6B] border-l-2 border-[#E63946] pl-3 uppercase tracking-widest">
-              Scan the grid quickly. Tap to claim target.
+              Claimed numbers turn red. Tap the target to claim it.
             </p>
           </div>
         </div>
 
-        {/* Opponent Sheet (miniature/reference) */}
+        {/* Opponent Sheet (reference) */}
         <div className="col-span-1 lg:col-span-3 bg-white border border-[#D1D1D1] p-4 shadow-[4px_4px_0px_#1A1A1A] flex flex-col grayscale opacity-60 pointer-events-none min-h-[400px]">
           <div className="flex justify-between items-end mb-6">
             <h2 className="font-bold text-sm underline underline-offset-4 uppercase">{opponent?.name || 'OPPONENT'}</h2>
             <span className="font-mono text-xs text-[#E63946] font-bold tracking-widest">{opponentDotsCount}/64</span>
           </div>
           <div className="grid grid-cols-8 gap-2 flex-1 items-center max-w-[280px] mx-auto w-full">
-            {opponentDotsInfo.map((circled, i) => (
-               <div
-                 key={i}
-                 className={cn(
-                   "aspect-square rounded-full border-2 flex items-center justify-center",
-                   circled
-                     ? "border-red-600 bg-red-100"
-                     : "border-[#D1D1D1] bg-[#EAEAEA]"
-                 )}
-               >
-                 {circled && <div className="w-1 h-1 sm:w-2 sm:h-2 bg-red-600 rounded-full" />}
-               </div>
+            {opponentDots.map((circled, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "aspect-square rounded-full border-2 flex items-center justify-center",
+                  circled ? "border-red-600 bg-red-100" : "border-[#D1D1D1] bg-[#EAEAEA]"
+                )}
+              >
+                {circled && <div className="w-1 h-1 sm:w-2 sm:h-2 bg-red-600 rounded-full" />}
+              </div>
             ))}
           </div>
           <div className="mt-6">
             <div className="h-1 bg-[#EAEAEA] w-full">
-               <div className="h-1 bg-red-600" style={{ width: `${(opponentDotsCount/64)*100}%` }}></div>
+              <div className="h-1 bg-red-600" style={{ width: `${(opponentDotsCount/64)*100}%` }}></div>
             </div>
             <p className="text-[10px] mt-2 text-[#8B8B8B] italic uppercase tracking-wider font-bold">
-               Status: {!isMyTurnToFind ? 'Finding Number...' : 'Circling Dots...'}
+              Status: {!isMyTurnToFind ? 'Finding Number...' : 'Circling Dots...'}
             </p>
           </div>
         </div>
@@ -200,3 +255,21 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
     </div>
   );
 }
+
+export const paperNumbers: GameDefinition<PaperNumbersState> = {
+  id: 'paper-numbers',
+  name: 'Paper Numbers',
+  tagline: 'Race to find numbers while your rival fills their dot sheet.',
+  accent: '#E63946',
+  emoji: '🔢',
+  createInitialState,
+  start,
+  reducer,
+  Board,
+  gameOverMessage: (state, myId) =>
+    state.winnerId === myId
+      ? '🎉 You dot-blasted them!'
+      : state.winnerId
+        ? `${state.players[state.winnerId]?.name ?? 'Opponent'} filled their sheet first!`
+        : 'Opponent left the game.',
+};

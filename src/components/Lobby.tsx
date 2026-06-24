@@ -1,22 +1,24 @@
-import { GameState } from '../types';
+import { BaseState } from '../types';
 
 interface LobbyProps {
-  gameState: GameState;
+  gameName: string;
+  state: BaseState;
   onStart: () => void;
   myId: string;
 }
 
-export function Lobby({ gameState, onStart, myId }: LobbyProps) {
-  const players = Object.values(gameState.players);
+export function Lobby({ gameName, state, onStart, myId }: LobbyProps) {
+  const players = Object.values(state.players);
   const isFull = players.length === 2;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#F4F1EA] p-4 text-[#2D2D2D] font-sans selection:bg-[#EAEAEA]">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] p-4 selection:bg-[#EAEAEA]">
       <div className="max-w-md w-full bg-white shadow-[8px_8px_0px_#1A1A1A] border-2 border-[#1A1A1A] p-8">
-        <h2 className="text-3xl font-bold text-center mb-8 text-[#1A1A1A] tracking-tighter uppercase italic border-b-2 border-[#1A1A1A] pb-4">
-          Room: <span className="text-[#E63946] font-mono not-italic font-black">{gameState.roomId}</span>
-        </h2>
-        
+        <h2 className="text-2xl font-bold text-center mb-2 text-[#1A1A1A] tracking-tighter uppercase italic">{gameName}</h2>
+        <h3 className="text-center mb-8 text-[#1A1A1A] tracking-tighter uppercase italic border-b-2 border-[#1A1A1A] pb-4">
+          Room: <span className="text-[#E63946] font-mono not-italic font-black">{state.roomId}</span>
+        </h3>
+
         <div className="space-y-4 mb-10">
           <p className="text-xs font-mono font-bold text-[#8B8B8B] uppercase tracking-widest text-center">Players ({players.length}/2)</p>
           <ul className="space-y-4">
@@ -38,13 +40,13 @@ export function Lobby({ gameState, onStart, myId }: LobbyProps) {
             )}
           </ul>
         </div>
-        
-        <button 
+
+        <button
           onClick={onStart}
           disabled={!isFull}
           className="w-full py-4 bg-[#E63946] hover:bg-[#D90429] active:translate-y-1 active:shadow-none transition-all text-white font-bold border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#1A1A1A] hover:shadow-[2px_2px_0px_#1A1A1A] uppercase tracking-[0.2em] mt-4 disabled:opacity-50 disabled:active:translate-y-0 disabled:shadow-none disabled:border-[#D1D1D1] disabled:bg-[#D1D1D1] disabled:text-[#8B8B8B]"
         >
-          {isFull ? 'START GAME' : 'WAITING...'}
+          {isFull ? 'START GAME' : 'WAITING FOR PLAYER 2…'}
         </button>
       </div>
     </div>
