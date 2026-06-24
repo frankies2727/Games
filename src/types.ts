@@ -16,16 +16,17 @@ export interface GameState {
   winnerId: string | null;
 }
 
-// Events from Client to Server
-export interface ClientToServerEvents {
-  join_room: (roomId: string, playerName: string) => void;
-  start_game: () => void;
-  number_found: (number: number) => void;
-  circle_dot: (dotIndex: number) => void;
-}
+// Peer-to-peer messages exchanged over the WebRTC data channel.
+// The room "host" browser is authoritative: it owns the GameState, applies all
+// actions, and broadcasts the result. Guests send actions and render state.
+export type NetMessage =
+  // guest -> host
+  | { type: 'join'; name: string }
+  | { type: 'start' }
+  | { type: 'number_found'; num: number }
+  | { type: 'circle_dot'; index: number }
+  // host -> guest
+  | { type: 'state'; state: GameState }
+  | { type: 'error'; msg: string };
 
-// Events from Server to Client
-export interface ServerToClientEvents {
-  game_state_update: (state: GameState) => void;
-  error: (msg: string) => void;
-}
+export type ConnStatus = 'idle' | 'connecting' | 'connected';
