@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { GameState } from '../types';
 import { cn } from '../lib/utils';
 
@@ -13,15 +14,61 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
   const opponents = Object.values(gameState.players).filter(p => p.id !== myId);
   const opponent = opponents[0];
 
-  const myDotsInfo = gameState.playerDots[myId] || Array(64).fill(false);
+  const serverMyDots = gameState.playerDots[myId] || Array(64).fill(false);
   const opponentDotsInfo = opponent ? (gameState.playerDots[opponent.id] || Array(64).fill(false)) : Array(64).fill(false);
-  
+
+  // Optimistic overlay: dots fill instantly on tap, then reconcile against the
+  // server broadcast. Dots only ever go false->true within a game, so merging
+  // (server OR optimistic) can never show a wrong state. This removes the
+  // per-tap network round-trip that made dotting feel laggy/unresponsive.
+  const [optimisticDots, setOptimisticDots] = useState<boolean[]>(() => Array(64).fill(false));
+
+  useEffect(() => {
+    if (isMyTurnToFind) {
+      // While finding you can't dot; drop any pending optimistic taps so a tap
+      // that landed right as roles swapped can't get stuck "filled".
+      setOptimisticDots((prev) => (prev.some(Boolean) ? Array(64).fill(false) : prev));
+    } else {
+      // Keep only taps the server hasn't confirmed yet (prevents flicker when
+      // multiple taps are in flight).
+      setOptimisticDots((prev) => prev.map((o, i) => o && !serverMyDots[i]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState, isMyTurnToFind]);
+
+  const myDotsInfo = serverMyDots.map((d, i) => d || optimisticDots[i]);
   const myDotsCount = myDotsInfo.filter(Boolean).length;
   const opponentDotsCount = opponentDotsInfo.filter(Boolean).length;
 
+  const handleDotClick = (i: number) => {
+    if (isMyTurnToFind || myDotsInfo[i]) return;
+    setOptimisticDots((prev) => {
+      const next = prev.slice();
+      next[i] = true;
+      return next;
+    });
+    onCircleDot(i);
+  };
+
+  // Immediate tactile feedback for the finder: flash green for a correct claim,
+  // red for a miss, so clicking a number never feels like "nothing happened".
+  const [flash, setFlash] = useState<{ i: number; ok: boolean } | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+
+  const handleFind = (num: number, i: number) => {
+    if (!isMyTurnToFind) return;
+    const ok = num === gameState.targetNumber;
+    setFlash({ i, ok });
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(null), 450);
+    onNumberFound(num);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-[#F4F1EA] text-[#2D2D2D] font-sans selection:bg-[#EAEAEA] p-4 sm:p-8 max-w-6xl mx-auto w-full">
-      
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b-2 border-[#1A1A1A] pb-4 gap-4">
         <div className="flex flex-col">
@@ -49,7 +96,7 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
 
       {/* Main Game Area */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pb-8">
-        
+
         {/* My Sheet (8x8 Dots) */}
         <div className={cn(
           "col-span-1 lg:col-span-3 bg-white border border-[#D1D1D1] p-4 shadow-[4px_4px_0px_#1A1A1A] flex flex-col transition-opacity duration-300 min-h-[400px]",
@@ -64,13 +111,12 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
               <button
                 key={i}
                 disabled={isMyTurnToFind || circled}
-                onClick={() => onCircleDot(i)}
+                onClick={() => handleDotClick(i)}
                 className={cn(
-                  "aspect-square rounded-full border-2 flex items-center justify-center transition-all outline-none",
-                  circled 
-                    ? "border-blue-600 bg-blue-100" 
-                    : "border-[#D1D1D1] bg-[#EAEAEA] hover:border-blue-400 active:scale-95",
-                  !isMyTurnToFind && !circled && "animate-pulse"
+                  "aspect-square rounded-full border-2 flex items-center justify-center transition-all duration-75 outline-none touch-manipulation",
+                  circled
+                    ? "border-blue-600 bg-blue-100"
+                    : "border-[#D1D1D1] bg-[#EAEAEA] hover:border-blue-400 active:scale-90 active:bg-blue-50"
                 )}
               >
                 {circled && <div className="w-1 h-1 sm:w-2 sm:h-2 bg-blue-600 rounded-full" />}
@@ -95,14 +141,16 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
           <div className="bg-white border-2 border-[#1A1A1A] p-2 flex-1 shadow-[8px_8px_0px_#D1D1D1] overflow-hidden">
             <div className="grid grid-cols-10 h-full border border-[#D1D1D1]">
               {gameState.masterSheet.map((num, i) => {
+                const isFlash = flash?.i === i;
                 return (
                   <button
                     key={i}
                     disabled={!isMyTurnToFind}
-                    onClick={() => onNumberFound(num)}
+                    onClick={() => handleFind(num, i)}
                     className={cn(
-                      "aspect-square border-[0.5px] border-[#EEEEEE] flex items-center justify-center font-mono text-sm sm:text-base lg:text-lg outline-none transition-colors text-[#444] bg-white",
-                      isMyTurnToFind ? "hover:bg-[#F4F1EA] active:bg-[#D1D1D1]" : "hover:bg-white"
+                      "aspect-square border-[0.5px] border-[#EEEEEE] flex items-center justify-center font-mono text-sm sm:text-base lg:text-lg outline-none transition-colors duration-75 text-[#444] bg-white touch-manipulation",
+                      isMyTurnToFind ? "hover:bg-[#F4F1EA] active:bg-[#D1D1D1]" : "hover:bg-white",
+                      isFlash && (flash!.ok ? "bg-green-200 text-green-900" : "bg-red-200 text-red-900")
                     )}
                   >
                     {num}
@@ -130,8 +178,8 @@ export function GameBoard({ gameState, myId, onCircleDot, onNumberFound }: GameB
                  key={i}
                  className={cn(
                    "aspect-square rounded-full border-2 flex items-center justify-center",
-                   circled 
-                     ? "border-red-600 bg-red-100" 
+                   circled
+                     ? "border-red-600 bg-red-100"
                      : "border-[#D1D1D1] bg-[#EAEAEA]"
                  )}
                >
