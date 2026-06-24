@@ -44,6 +44,13 @@ export interface GameDefinition<S extends BaseState = BaseState> {
   Board: ComponentType<BoardProps<S>>;
   /** Optional custom end-screen line. */
   gameOverMessage?: (state: S, myId: string) => string;
+  /**
+   * Optional per-viewer state masking for hidden-information games. The host
+   * applies this before sending state to each player (and to its own view), so
+   * secrets (e.g. un-hit ship positions) never leave the host. The host's
+   * authoritative copy stays unredacted for game logic.
+   */
+  redact?: (state: S, viewerId: string) => S;
 }
 
 // ---- Wire protocol (guest <-> host) ----
