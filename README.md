@@ -1,15 +1,27 @@
-# Paper Numbers
+# Paper Games
 
-A chill, real-time **2-player** pencil-and-paper game. One player is the
-**Finder** (races to spot a target number on a 10×10 grid) while the other is
-the **Dotter** (quietly fills in their 64-dot sheet). Finding the number swaps
-the roles — first to fill all 64 dots wins.
+A small gallery of chill, real-time **2-player** pencil-and-paper games. Pick one
+from the home screen:
 
-It's fully **peer-to-peer**: the two browsers connect directly via WebRTC
+- **Paper Numbers** — one player is the **Finder** (races to spot a target number
+  on a 10×10 grid; claimed numbers turn red) while the other is the **Dotter**
+  (fills a 64-dot sheet). Finding the number swaps roles — first to fill all 64
+  dots wins.
+- **Tic-Tac-Toe** — the classic 3-in-a-row duel.
+- **Connect 4** — drop discs and line up four.
+
+Every game is fully **peer-to-peer**: the two browsers connect directly via WebRTC
 (using [PeerJS](https://peerjs.com) for the initial handshake), so there's no
 backend server to run or pay for. That's what lets it live on GitHub Pages.
 
 **Play it:** https://frankies2727.github.io/Games/
+
+## Adding a game
+
+Each game is a self-contained `GameDefinition` in `src/games/` (initial state,
+`start`, a pure `reducer`, and a `Board` component). Add it to the registry in
+`src/games/index.ts` and it shows up in the gallery automatically — the
+peer-to-peer networking in `src/hooks/usePeerSession.ts` is game-agnostic.
 
 ## How to play
 

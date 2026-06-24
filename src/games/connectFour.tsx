@@ -1,0 +1,154 @@
+import { BaseState, BoardProps, GameAction, GameDefinition } from '../types';
+import { cn } from '../lib/utils';
+
+const ROWS = 6;
+const COLS = 7;
+const idx = (r: number, c: number) => r * COLS + c;
+
+export interface ConnectFourState extends BaseState {
+  board: (string | null)[]; // 42 cells, row-major (row 0 = top), value = player id
+  turnId: string | null;
+  winningCells: number[] | null;
+}
+
+function checkWin(board: (string | null)[], pid: string): number[] | null {
+  const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[idx(r, c)] !== pid) continue;
+      for (const [dr, dc] of dirs) {
+        const cells = [idx(r, c)];
+        let rr = r + dr, cc = c + dc;
+        while (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS && board[idx(rr, cc)] === pid) {
+          cells.push(idx(rr, cc));
+          if (cells.length === 4) return cells;
+          rr += dr; cc += dc;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+const landingRow = (board: (string | null)[], col: number): number => {
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (board[idx(r, col)] === null) return r;
+  }
+  return -1; // column full
+};
+
+function createInitialState(roomId: string): ConnectFourState {
+  return {
+    roomId,
+    status: 'waiting',
+    players: {},
+    winnerId: null,
+    board: Array(ROWS * COLS).fill(null),
+    turnId: null,
+    winningCells: null,
+  };
+}
+
+function start(state: ConnectFourState): ConnectFourState {
+  const ids = Object.keys(state.players);
+  return { ...state, status: 'playing', board: Array(ROWS * COLS).fill(null), turnId: ids[0], winningCells: null };
+}
+
+function reducer(state: ConnectFourState, pid: string, action: GameAction): ConnectFourState {
+  if (state.status !== 'playing' || pid !== state.turnId) return state;
+  const col = action.col as number;
+  if (col < 0 || col >= COLS) return state;
+  const row = landingRow(state.board, col);
+  if (row < 0) return state; // column full
+
+  const board = state.board.slice();
+  board[idx(row, col)] = pid;
+
+  const win = checkWin(board, pid);
+  if (win) return { ...state, board, status: 'gameover', winnerId: pid, winningCells: win, turnId: null };
+  if (board.every(Boolean)) return { ...state, board, status: 'gameover', winnerId: null, turnId: null };
+
+  const ids = Object.keys(state.players);
+  return { ...state, board, turnId: pid === ids[0] ? ids[1] : ids[0] };
+}
+
+function Board({ state, myId, dispatch }: BoardProps<ConnectFourState>) {
+  const ids = Object.keys(state.players);
+  const colorOf = (pid: string | null) =>
+    pid === ids[0] ? '#E63946' : pid === ids[1] ? '#FFC300' : 'transparent';
+  const myColor = colorOf(myId);
+  const myTurn = state.turnId === myId;
+  const opponent = Object.values(state.players).find((p) => p.id !== myId);
+  const winning = new Set(state.winningCells ?? []);
+
+  return (
+    <div className="flex flex-col items-center p-4 sm:p-8 max-w-2xl mx-auto w-full">
+      <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#1A1A1A] pb-4">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#1A1A1A]">Connect 4</h1>
+        <span className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B]">Room ID: #{state.roomId}</span>
+      </div>
+
+      <div className={cn(
+        "flex items-center gap-3 px-6 py-2 border-2 border-[#1A1A1A] font-bold text-sm sm:text-lg uppercase shadow-[4px_4px_0px_#1A1A1A] mb-8",
+        myTurn ? "bg-[#E63946] text-white" : "bg-[#1A1A1A] text-white"
+      )}>
+        <span className="inline-block w-5 h-5 rounded-full border-2 border-white" style={{ background: myColor }} />
+        {myTurn ? 'Your turn' : `${opponent?.name ?? 'Opponent'}'s turn`}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1.5 sm:gap-2 bg-[#1A1A1A] p-2 sm:p-3 border-2 border-[#1A1A1A] shadow-[8px_8px_0px_#D1D1D1] w-full max-w-[480px]">
+        {Array.from({ length: COLS }, (_, col) => {
+          const full = landingRow(state.board, col) < 0;
+          const canPlay = myTurn && !full;
+          return (
+            <button
+              key={col}
+              disabled={!canPlay}
+              onClick={() => dispatch({ col })}
+              className={cn(
+                "flex flex-col gap-1.5 sm:gap-2 rounded-md p-0.5 transition-colors touch-manipulation",
+                canPlay && "hover:bg-white/10"
+              )}
+            >
+              {Array.from({ length: ROWS }, (_, row) => {
+                const cell = state.board[idx(row, col)];
+                const cellIdx = idx(row, col);
+                return (
+                  <span
+                    key={row}
+                    className={cn(
+                      "aspect-square rounded-full bg-[#F4F1EA] border border-[#00000022]",
+                      winning.has(cellIdx) && "ring-2 ring-white"
+                    )}
+                    style={cell ? { background: colorOf(cell) } : undefined}
+                  />
+                );
+              })}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] sm:text-xs font-bold text-[#6B6B6B] border-l-2 border-[#E63946] pl-3 uppercase tracking-widest mt-6">
+        Drop a disc into any column. Four in a row wins.
+      </p>
+    </div>
+  );
+}
+
+export const connectFour: GameDefinition<ConnectFourState> = {
+  id: 'connect-four',
+  name: 'Connect 4',
+  tagline: 'Stack discs and line up four before your rival.',
+  accent: '#1D3557',
+  emoji: '🔴',
+  createInitialState,
+  start,
+  reducer,
+  Board,
+  gameOverMessage: (state, myId) =>
+    !state.winnerId
+      ? "It's a draw — board full!"
+      : state.winnerId === myId
+        ? '🎉 You connected four!'
+        : `${state.players[state.winnerId]?.name ?? 'Opponent'} connected four!`,
+};
