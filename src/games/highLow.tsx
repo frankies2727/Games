@@ -13,8 +13,10 @@ type Outcome = 'correct' | 'wrong' | 'push';
 export interface HighLowState extends BaseState {
   currentCard: number;
   scores: Record<string, number>;
-  turnId: string | null;
-  lastResult: { by: string; guess: Guess; prev: number; drawn: number; outcome: Outcome } | null;
+  guesserId: string | null; // whose turn it is to call higher/lower
+  pendingGuess: Guess | null; // the SECRET call (redacted from the dealer)
+  guessCommitted: boolean; // public flag so the dealer knows a call is locked in
+  lastResult: { guesserId: string; giverId: string; guess: Guess; prev: number; given: number; outcome: Outcome } | null;
 }
 
 function createInitialState(roomId: string): HighLowState {
@@ -25,7 +27,9 @@ function createInitialState(roomId: string): HighLowState {
     winnerId: null,
     currentCard: draw(),
     scores: {},
-    turnId: null,
+    guesserId: null,
+    pendingGuess: null,
+    guessCommitted: false,
     lastResult: null,
   };
 }
@@ -34,52 +38,82 @@ function start(state: HighLowState): HighLowState {
   const ids = Object.keys(state.players);
   const scores: Record<string, number> = {};
   for (const id of ids) scores[id] = 0;
-  return { ...state, status: 'playing', scores, turnId: ids[0], currentCard: draw(), lastResult: null };
+  return {
+    ...state,
+    status: 'playing',
+    scores,
+    guesserId: ids[0],
+    currentCard: draw(),
+    pendingGuess: null,
+    guessCommitted: false,
+    lastResult: null,
+  };
 }
 
 function reducer(state: HighLowState, pid: string, action: GameAction): HighLowState {
-  if (state.status !== 'playing' || pid !== state.turnId) return state;
-  const guess = action.guess as Guess;
-  if (guess !== 'higher' && guess !== 'lower') return state;
-
-  const prev = state.currentCard;
-  const drawn = draw();
-  const outcome: Outcome = drawn === prev ? 'push' : (drawn > prev ? 'higher' : 'lower') === guess ? 'correct' : 'wrong';
-
-  const scores = { ...state.scores };
-  if (outcome === 'correct') scores[pid] = (scores[pid] ?? 0) + 1;
-
+  if (state.status !== 'playing') return state;
   const ids = Object.keys(state.players);
-  const won = scores[pid] >= TARGET_SCORE;
-  const lastResult = { by: pid, guess, prev, drawn, outcome };
 
-  if (won) {
-    return { ...state, currentCard: drawn, scores, lastResult, status: 'gameover', winnerId: pid, turnId: null };
+  // 1) Guesser locks in a secret higher/lower call.
+  if (action.guess) {
+    if (pid !== state.guesserId || state.guessCommitted) return state;
+    const guess = action.guess as Guess;
+    if (guess !== 'higher' && guess !== 'lower') return state;
+    return { ...state, pendingGuess: guess, guessCommitted: true };
   }
-  return { ...state, currentCard: drawn, scores, lastResult, turnId: pid === ids[0] ? ids[1] : ids[0] };
+
+  // 2) Dealer hands over a card (blind to the call), which resolves the round.
+  if (typeof action.give === 'number') {
+    if (!state.guessCommitted || pid === state.guesserId) return state; // only the dealer, only after a call
+    const given = action.give;
+    if (given < CARD_MIN || given > CARD_MAX) return state;
+
+    const guesserId = state.guesserId!;
+    const guess = state.pendingGuess!;
+    const prev = state.currentCard;
+    const trueDir = given === prev ? 'push' : given > prev ? 'higher' : 'lower';
+    const outcome: Outcome = trueDir === 'push' ? 'push' : trueDir === guess ? 'correct' : 'wrong';
+
+    const scores = { ...state.scores };
+    if (outcome === 'correct') scores[guesserId] = (scores[guesserId] ?? 0) + 1;
+
+    const lastResult = { guesserId, giverId: pid, guess, prev, given, outcome };
+    const base = { ...state, currentCard: given, scores, lastResult, pendingGuess: null, guessCommitted: false };
+
+    if (scores[guesserId] >= TARGET_SCORE) {
+      return { ...base, status: 'gameover', winnerId: guesserId, guesserId: null };
+    }
+    return { ...base, guesserId: guesserId === ids[0] ? ids[1] : ids[0] };
+  }
+
+  return state;
 }
 
-function Card({ value, small }: { value: number; small?: boolean }) {
+// Keep the guesser's secret call away from the dealer until the round resolves.
+function redact(state: HighLowState, viewerId: string): HighLowState {
+  if (state.pendingGuess == null || viewerId === state.guesserId) return state;
+  return { ...state, pendingGuess: null };
+}
+
+function Card({ value }: { value: number }) {
   return (
-    <div className={cn(
-      "bg-white border-2 border-[#1A1A1A] flex items-center justify-center font-black font-mono text-[#1A1A1A] shadow-[4px_4px_0px_#1A1A1A]",
-      small ? "w-14 h-20 text-3xl" : "w-28 h-40 sm:w-32 sm:h-44 text-6xl sm:text-7xl"
-    )}>
+    <div className="bg-white border-2 border-[#1A1A1A] flex items-center justify-center font-black font-mono text-[#1A1A1A] shadow-[4px_4px_0px_#1A1A1A] w-28 h-40 sm:w-32 sm:h-44 text-6xl sm:text-7xl">
       {value}
     </div>
   );
 }
 
 function Board({ state, myId, dispatch }: BoardProps<HighLowState>) {
-  const myTurn = state.turnId === myId;
   const me = Object.values(state.players).find((p) => p.id === myId);
   const opponent = Object.values(state.players).find((p) => p.id !== myId);
+  const iAmGuesser = state.guesserId === myId;
+  const guesser = state.guesserId ? state.players[state.guesserId] : null;
   const r = state.lastResult;
 
   const resultText = r
-    ? `${state.players[r.by]?.name ?? '—'} guessed ${r.guess.toUpperCase()} · drew ${r.drawn} · ` +
+    ? `${state.players[r.guesserId]?.name ?? '—'} called ${r.guess.toUpperCase()} · ${state.players[r.giverId]?.name ?? '—'} dealt ${r.given} · ` +
       (r.outcome === 'correct' ? '✓ point!' : r.outcome === 'push' ? '= push (tie)' : '✗ miss')
-    : 'Guess if the next card is higher or lower.';
+    : 'Secretly call higher or lower — your rival deals the card blind.';
 
   return (
     <div className="flex flex-col items-center p-4 sm:p-8 max-w-xl mx-auto w-full">
@@ -93,7 +127,7 @@ function Board({ state, myId, dispatch }: BoardProps<HighLowState>) {
         {[me, opponent].map((p, i) => p && (
           <div key={p.id} className={cn(
             "flex-1 border-2 border-[#1A1A1A] p-3 text-center",
-            state.turnId === p.id ? "bg-[#E63946] text-white" : "bg-white text-[#1A1A1A]"
+            state.guesserId === p.id ? "bg-[#9D4EDD] text-white" : "bg-white text-[#1A1A1A]"
           )}>
             <div className="text-[10px] font-mono uppercase tracking-widest truncate">{i === 0 ? 'You' : p.name}</div>
             <div className="text-3xl font-black font-mono">{state.scores[p.id] ?? 0}<span className="text-sm text-[#8B8B8B]">/{TARGET_SCORE}</span></div>
@@ -102,7 +136,7 @@ function Board({ state, myId, dispatch }: BoardProps<HighLowState>) {
       </div>
 
       {/* Current card */}
-      <div className="flex flex-col items-center gap-2 mb-8">
+      <div className="flex flex-col items-center gap-2 mb-6">
         <span className="text-[10px] font-mono uppercase tracking-widest text-[#8B8B8B]">Current card</span>
         <Card value={state.currentCard} />
       </div>
@@ -117,26 +151,45 @@ function Board({ state, myId, dispatch }: BoardProps<HighLowState>) {
         {resultText}
       </div>
 
-      {/* Guess buttons */}
-      <div className="flex gap-4 w-full max-w-md">
-        <button
-          disabled={!myTurn}
-          onClick={() => dispatch({ guess: 'higher' })}
-          className="flex-1 py-5 bg-[#1A1A1A] text-white font-bold uppercase tracking-[0.2em] border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#E63946] hover:shadow-[2px_2px_0px_#E63946] active:translate-y-1 active:shadow-none transition-all disabled:opacity-40 disabled:bg-[#D1D1D1] disabled:border-[#D1D1D1] disabled:shadow-none"
-        >
-          ▲ Higher
-        </button>
-        <button
-          disabled={!myTurn}
-          onClick={() => dispatch({ guess: 'lower' })}
-          className="flex-1 py-5 bg-[#1A1A1A] text-white font-bold uppercase tracking-[0.2em] border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#E63946] hover:shadow-[2px_2px_0px_#E63946] active:translate-y-1 active:shadow-none transition-all disabled:opacity-40 disabled:bg-[#D1D1D1] disabled:border-[#D1D1D1] disabled:shadow-none"
-        >
-          ▼ Lower
-        </button>
-      </div>
-      <p className="text-[10px] font-mono uppercase tracking-widest text-[#8B8B8B] mt-4">
-        {myTurn ? 'Your turn' : `Waiting for ${opponent?.name ?? 'opponent'}…`} · cards run {CARD_MIN}–{CARD_MAX}
-      </p>
+      {/* Phase-aware controls */}
+      {!state.guessCommitted ? (
+        iAmGuesser ? (
+          <div className="w-full max-w-md flex flex-col items-center gap-3">
+            <p className="text-[11px] font-mono uppercase tracking-widest text-[#9D4EDD] font-bold">Your secret call</p>
+            <div className="flex gap-4 w-full">
+              <button onClick={() => dispatch({ guess: 'higher' })} className="flex-1 py-5 bg-[#1A1A1A] text-white font-bold uppercase tracking-[0.2em] border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#9D4EDD] hover:shadow-[2px_2px_0px_#9D4EDD] active:translate-y-1 active:shadow-none transition-all">▲ Higher</button>
+              <button onClick={() => dispatch({ guess: 'lower' })} className="flex-1 py-5 bg-[#1A1A1A] text-white font-bold uppercase tracking-[0.2em] border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#9D4EDD] hover:shadow-[2px_2px_0px_#9D4EDD] active:translate-y-1 active:shadow-none transition-all">▼ Lower</button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm font-mono uppercase tracking-widest text-[#6B6B6B] animate-pulse text-center">
+            Waiting for {guesser?.name ?? 'opponent'} to make a secret call…
+          </p>
+        )
+      ) : iAmGuesser ? (
+        <p className="text-sm font-mono uppercase tracking-widest text-[#6B6B6B] text-center">
+          You called <span className="text-[#9D4EDD] font-bold">{state.pendingGuess?.toUpperCase()}</span>.
+          <br />Waiting for {opponent?.name ?? 'opponent'} to deal a card…
+        </p>
+      ) : (
+        <div className="w-full max-w-md flex flex-col items-center gap-3">
+          <p className="text-[11px] font-mono uppercase tracking-widest text-[#9D4EDD] font-bold text-center">
+            Deal a card to {guesser?.name ?? 'opponent'} — you can't see their call
+          </p>
+          <div className="grid grid-cols-6 gap-2 w-full">
+            {Array.from({ length: CARD_MAX }, (_, i) => i + 1).map((v) => (
+              <button
+                key={v}
+                onClick={() => dispatch({ give: v })}
+                className="aspect-[3/4] bg-white text-[#1A1A1A] font-black font-mono text-xl border-2 border-[#1A1A1A] shadow-[3px_3px_0px_#1A1A1A] hover:shadow-[1px_1px_0px_#1A1A1A] hover:bg-[#F4F1EA] active:translate-y-0.5 active:shadow-none transition-all"
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="text-[10px] font-mono uppercase tracking-widest text-[#8B8B8B] mt-6">cards run {CARD_MIN}–{CARD_MAX} · first to {TARGET_SCORE} wins</p>
     </div>
   );
 }
@@ -144,12 +197,13 @@ function Board({ state, myId, dispatch }: BoardProps<HighLowState>) {
 export const highLow: GameDefinition<HighLowState> = {
   id: 'high-low',
   name: 'High-Low',
-  tagline: 'Call the next card higher or lower. First to 6 points.',
+  tagline: 'Secretly call higher or lower — your rival deals the card blind. First to 6.',
   accent: '#9D4EDD',
   emoji: '🃏',
   createInitialState,
   start,
   reducer,
+  redact,
   Board,
   gameOverMessage: (state, myId) =>
     state.winnerId === myId

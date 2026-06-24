@@ -9,7 +9,8 @@ from the home screen:
   dots wins.
 - **Tic-Tac-Toe** — the classic 3-in-a-row duel.
 - **Connect 4** — drop discs and line up four.
-- **High-Low** — call whether the next card is higher or lower; first to 6 points wins.
+- **High-Low** — the guesser secretly calls higher or lower, then the *opponent
+  deals a card blind* (they can't see the call). Correct call scores; first to 6.
 - **Battleship** — randomize your fleet, then hunt the enemy ships. Opponent ship
   positions are masked server-side (`redact`) so they can't be read off the wire.
 
