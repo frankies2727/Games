@@ -13,7 +13,7 @@ export function Gallery({ games, onSelect }: GalleryProps) {
         <header className="text-center mb-12 sm:mb-16">
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tighter uppercase italic text-[#F5F6F7] flex items-center justify-center flex-wrap gap-x-3">
             <span className="not-italic">💕</span>
-            <span>C&amp;F Couple Games</span>
+            <span>C&amp;F - Couple Games</span>
             <span className="not-italic">✏️</span>
           </h1>
           <p className="text-xs sm:text-sm font-mono uppercase tracking-[0.3em] text-[#9CA3AF] mt-4">
