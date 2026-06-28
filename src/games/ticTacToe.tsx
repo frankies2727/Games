@@ -49,6 +49,34 @@ function reducer(state: TicTacToeState, pid: string, action: GameAction): TicTac
   return { ...state, board, turnId: pid === ids[0] ? ids[1] : ids[0] };
 }
 
+// Bot: win if it can, else block, else prefer center > corners > edges.
+function botMove(state: TicTacToeState, botId: string): GameAction | null {
+  if (state.status !== 'playing' || state.turnId !== botId) return null;
+  const b = state.board;
+  const ids = Object.keys(state.players);
+  const opp = botId === ids[0] ? ids[1] : ids[0];
+  const empties = b.map((c, i) => (c === null ? i : -1)).filter((i) => i >= 0);
+
+  const finisher = (who: string): number => {
+    for (const i of empties) {
+      const t = b.slice();
+      t[i] = who;
+      if (winnerLine(t, who)) return i;
+    }
+    return -1;
+  };
+
+  let i = finisher(botId);
+  if (i < 0) i = finisher(opp);
+  if (i < 0 && b[4] === null) i = 4;
+  if (i < 0) {
+    const corners = [0, 2, 6, 8].filter((c) => b[c] === null);
+    const pool = corners.length ? corners : empties;
+    i = pool[Math.floor(Math.random() * pool.length)];
+  }
+  return i >= 0 ? { index: i } : null;
+}
+
 function Board({ state, myId, dispatch }: BoardProps<TicTacToeState>) {
   const ids = Object.keys(state.players);
   const symbolOf = (pid: string | null) => (pid === ids[0] ? 'X' : pid === ids[1] ? 'O' : '');
@@ -59,14 +87,14 @@ function Board({ state, myId, dispatch }: BoardProps<TicTacToeState>) {
 
   return (
     <div className="flex flex-col items-center p-4 sm:p-8 max-w-xl mx-auto w-full">
-      <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#1A1A1A] pb-4">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#1A1A1A]">Tic-Tac-Toe</h1>
-        <span className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B]">Room ID: #{state.roomId}</span>
+      <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#39414E] pb-4">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Tic-Tac-Toe</h1>
+        <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Room ID: #{state.roomId}</span>
       </div>
 
       <div className={cn(
-        "px-6 py-2 border-2 border-[#1A1A1A] font-bold text-sm sm:text-lg uppercase shadow-[4px_4px_0px_#1A1A1A] mb-8",
-        myTurn ? "bg-[#E63946] text-white" : "bg-[#1A1A1A] text-white"
+        "px-6 py-2 border-2 border-[#39414E] font-bold text-sm sm:text-lg uppercase shadow-[4px_4px_0px_#454C5A] mb-8",
+        myTurn ? "bg-[#E63946] text-white" : "bg-[#262B34] text-white"
       )}>
         You are {mySymbol} · {myTurn ? 'Your turn' : `${opponent?.name ?? 'Opponent'}'s turn`}
       </div>
@@ -81,10 +109,10 @@ function Board({ state, myId, dispatch }: BoardProps<TicTacToeState>) {
               disabled={!canPlay}
               onClick={() => dispatch({ index: i })}
               className={cn(
-                "aspect-square bg-white border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#D1D1D1] flex items-center justify-center text-5xl sm:text-6xl font-black transition-colors touch-manipulation",
-                winning.has(i) && "bg-green-200",
-                sym === 'X' ? "text-[#E63946]" : "text-[#1A1A1A]",
-                canPlay && "hover:bg-[#F4F1EA] active:translate-y-0.5"
+                "aspect-square bg-[#1A1D24] border-2 border-[#39414E] shadow-[4px_4px_0px_#2E343F] flex items-center justify-center text-5xl sm:text-6xl font-black transition-colors touch-manipulation",
+                winning.has(i) && "bg-green-900/50",
+                sym === 'X' ? "text-[#E63946]" : "text-[#F5F6F7]",
+                canPlay && "hover:bg-[#262B34] active:translate-y-0.5"
               )}
             >
               {sym}
@@ -105,6 +133,7 @@ export const ticTacToe: GameDefinition<TicTacToeState> = {
   createInitialState,
   start,
   reducer,
+  botMove,
   Board,
   gameOverMessage: (state, myId) =>
     !state.winnerId
