@@ -11,8 +11,10 @@ export function Gallery({ games, onSelect }: GalleryProps) {
     <div className="min-h-screen bg-[#0F1117] text-[#E2E4E8] font-sans selection:bg-[#262B34] px-4 py-12 sm:py-20">
       <div className="max-w-4xl mx-auto">
         <header className="text-center mb-12 sm:mb-16">
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tighter uppercase italic text-[#F5F6F7]">
-            Paper Games
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tighter uppercase italic text-[#F5F6F7] flex items-center justify-center flex-wrap gap-x-3">
+            <span className="not-italic">💕</span>
+            <span>C&amp;F Couple Games</span>
+            <span className="not-italic">✏️</span>
           </h1>
           <p className="text-xs sm:text-sm font-mono uppercase tracking-[0.3em] text-[#9CA3AF] mt-4">
             Chill pencil &amp; paper games · 2 players · pick one
@@ -36,10 +38,7 @@ export function Gallery({ games, onSelect }: GalleryProps) {
                 <h2 className="text-xl font-bold uppercase tracking-tight text-[#F5F6F7]">{game.name}</h2>
                 <p className="text-sm text-[#9CA3AF] mt-2 leading-snug">{game.tagline}</p>
               </div>
-              <span
-                className="text-[10px] font-mono font-bold uppercase tracking-widest"
-                style={{ color: game.accent }}
-              >
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-white">
                 Play →
               </span>
             </button>
