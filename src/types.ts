@@ -63,6 +63,7 @@ export interface GameDefinition<S extends BaseState = BaseState> {
 export type NetMessage<S extends BaseState = BaseState> =
   | { kind: 'join'; name: string }
   | { kind: 'start' }
+  | { kind: 'rematch' }
   | { kind: 'action'; action: GameAction }
   | { kind: 'state'; state: S }
   | { kind: 'error'; msg: string };

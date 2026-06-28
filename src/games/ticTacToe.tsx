@@ -87,14 +87,14 @@ function Board({ state, myId, dispatch }: BoardProps<TicTacToeState>) {
 
   return (
     <div className="flex flex-col items-center p-4 sm:p-8 max-w-xl mx-auto w-full">
-      <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#1A1A1A] pb-4">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#1A1A1A]">Tic-Tac-Toe</h1>
-        <span className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B]">Room ID: #{state.roomId}</span>
+      <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#39414E] pb-4">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Tic-Tac-Toe</h1>
+        <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Room ID: #{state.roomId}</span>
       </div>
 
       <div className={cn(
-        "px-6 py-2 border-2 border-[#1A1A1A] font-bold text-sm sm:text-lg uppercase shadow-[4px_4px_0px_#1A1A1A] mb-8",
-        myTurn ? "bg-[#E63946] text-white" : "bg-[#1A1A1A] text-white"
+        "px-6 py-2 border-2 border-[#39414E] font-bold text-sm sm:text-lg uppercase shadow-[4px_4px_0px_#454C5A] mb-8",
+        myTurn ? "bg-[#E63946] text-white" : "bg-[#262B34] text-white"
       )}>
         You are {mySymbol} · {myTurn ? 'Your turn' : `${opponent?.name ?? 'Opponent'}'s turn`}
       </div>
@@ -109,10 +109,10 @@ function Board({ state, myId, dispatch }: BoardProps<TicTacToeState>) {
               disabled={!canPlay}
               onClick={() => dispatch({ index: i })}
               className={cn(
-                "aspect-square bg-white border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#D1D1D1] flex items-center justify-center text-5xl sm:text-6xl font-black transition-colors touch-manipulation",
-                winning.has(i) && "bg-green-200",
-                sym === 'X' ? "text-[#E63946]" : "text-[#1A1A1A]",
-                canPlay && "hover:bg-[#F4F1EA] active:translate-y-0.5"
+                "aspect-square bg-[#1A1D24] border-2 border-[#39414E] shadow-[4px_4px_0px_#2E343F] flex items-center justify-center text-5xl sm:text-6xl font-black transition-colors touch-manipulation",
+                winning.has(i) && "bg-green-900/50",
+                sym === 'X' ? "text-[#E63946]" : "text-[#F5F6F7]",
+                canPlay && "hover:bg-[#262B34] active:translate-y-0.5"
               )}
             >
               {sym}

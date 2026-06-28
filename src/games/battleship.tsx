@@ -179,16 +179,16 @@ function GridCell({ kind, onClick, clickable }: { key?: number; kind: 'water' | 
       disabled={!clickable}
       onClick={onClick}
       className={cn(
-        "aspect-square border border-[#cdd9de] flex items-center justify-center text-[10px] sm:text-xs touch-manipulation",
-        kind === 'water' && "bg-[#eaf3f6]",
+        "aspect-square border border-[#27313a] flex items-center justify-center text-[10px] sm:text-xs touch-manipulation",
+        kind === 'water' && "bg-[#172029]",
         kind === 'ship' && "bg-[#5b6770]",
         kind === 'hit' && "bg-[#E63946]",
-        kind === 'miss' && "bg-[#eaf3f6]",
-        clickable && "hover:bg-[#cfe6ef] cursor-pointer"
+        kind === 'miss' && "bg-[#172029]",
+        clickable && "hover:bg-[#1f2d38] cursor-pointer"
       )}
     >
       {kind === 'hit' && <span className="text-white font-bold">✕</span>}
-      {kind === 'miss' && <span className="w-1.5 h-1.5 rounded-full bg-[#9aa7ad]" />}
+      {kind === 'miss' && <span className="w-1.5 h-1.5 rounded-full bg-[#6b7882]" />}
     </button>
   );
 }
@@ -205,32 +205,32 @@ function Board({ state, myId, dispatch }: BoardProps<BattleshipState>) {
     const iAmReady = state.ready[myId];
     return (
       <div className="flex flex-col items-center p-4 sm:p-8 max-w-md mx-auto w-full">
-        <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#1A1A1A] pb-4">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#1A1A1A]">Battleship</h1>
-          <span className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B]">Place your fleet · Room #{state.roomId}</span>
+        <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#39414E] pb-4">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Battleship</h1>
+          <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Place your fleet · Room #{state.roomId}</span>
         </div>
 
-        <div className="grid grid-cols-10 gap-0.5 w-full max-w-[360px] bg-[#1A1A1A] p-1 border-2 border-[#1A1A1A] shadow-[6px_6px_0px_#D1D1D1] mb-6">
+        <div className="grid grid-cols-10 gap-0.5 w-full max-w-[360px] bg-[#262B34] p-1 border-2 border-[#39414E] shadow-[6px_6px_0px_#2E343F] mb-6">
           {myFleet.map((cell, i) => (
             <GridCell key={i} kind={cell != null ? 'ship' : 'water'} />
           ))}
         </div>
 
         {iAmReady ? (
-          <p className="text-sm font-mono uppercase tracking-widest text-[#6B6B6B] animate-pulse">
+          <p className="text-sm font-mono uppercase tracking-widest text-[#9CA3AF] animate-pulse">
             Waiting for {opponent?.name ?? 'opponent'}…
           </p>
         ) : (
           <div className="flex gap-4 w-full max-w-[360px]">
             <button
               onClick={() => dispatch({ a: 'shuffle' })}
-              className="flex-1 py-4 bg-white text-[#1A1A1A] font-bold uppercase tracking-widest border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#1A1A1A] hover:shadow-[2px_2px_0px_#1A1A1A] active:translate-y-1 active:shadow-none transition-all"
+              className="flex-1 py-4 bg-[#1A1D24] text-[#F5F6F7] font-bold uppercase tracking-widest border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all"
             >
               ⤭ Shuffle
             </button>
             <button
               onClick={() => dispatch({ a: 'ready' })}
-              className="flex-1 py-4 bg-[#E63946] text-white font-bold uppercase tracking-widest border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#1A1A1A] hover:shadow-[2px_2px_0px_#1A1A1A] active:translate-y-1 active:shadow-none transition-all"
+              className="flex-1 py-4 bg-[#E63946] text-white font-bold uppercase tracking-widest border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all"
             >
               ✓ Ready
             </button>
@@ -256,18 +256,18 @@ function Board({ state, myId, dispatch }: BoardProps<BattleshipState>) {
 
   return (
     <div className="flex flex-col items-center p-4 sm:p-8 max-w-3xl mx-auto w-full">
-      <div className="w-full flex flex-col items-center mb-4 border-b-2 border-[#1A1A1A] pb-4">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#1A1A1A]">Battleship</h1>
-        <span className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B]">Room #{state.roomId}</span>
+      <div className="w-full flex flex-col items-center mb-4 border-b-2 border-[#39414E] pb-4">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Battleship</h1>
+        <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Room #{state.roomId}</span>
       </div>
 
       <div className={cn(
-        "px-6 py-2 border-2 border-[#1A1A1A] font-bold text-sm uppercase shadow-[4px_4px_0px_#1A1A1A] mb-2",
-        myTurn ? "bg-[#E63946] text-white" : "bg-[#1A1A1A] text-white"
+        "px-6 py-2 border-2 border-[#39414E] font-bold text-sm uppercase shadow-[4px_4px_0px_#454C5A] mb-2",
+        myTurn ? "bg-[#E63946] text-white" : "bg-[#262B34] text-white"
       )}>
         {myTurn ? 'Your turn — fire!' : `${opponent?.name ?? 'Opponent'}'s turn`}
       </div>
-      <p className="text-[11px] font-mono uppercase tracking-wider text-[#6B6B6B] mb-6 text-center">{lastText}</p>
+      <p className="text-[11px] font-mono uppercase tracking-wider text-[#9CA3AF] mb-6 text-center">{lastText}</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
         {/* Opponent waters — fire here */}
@@ -277,7 +277,7 @@ function Board({ state, myId, dispatch }: BoardProps<BattleshipState>) {
             <span className="font-mono text-xs text-[#E63946] font-bold">{myHits}/{TOTAL_SHIP_CELLS}</span>
           </div>
           <div className={cn(
-            "grid grid-cols-10 gap-0.5 w-full max-w-[320px] bg-[#1A1A1A] p-1 border-2 border-[#1A1A1A] shadow-[6px_6px_0px_#D1D1D1]",
+            "grid grid-cols-10 gap-0.5 w-full max-w-[320px] bg-[#262B34] p-1 border-2 border-[#39414E] shadow-[6px_6px_0px_#2E343F]",
             !myTurn && "opacity-70"
           )}>
             {oppIncoming.map((shot, i) => (
@@ -295,9 +295,9 @@ function Board({ state, myId, dispatch }: BoardProps<BattleshipState>) {
         <div className="flex flex-col items-center">
           <div className="flex justify-between w-full max-w-[320px] mb-2">
             <h2 className="font-bold text-xs uppercase tracking-widest">Your fleet</h2>
-            <span className="font-mono text-xs text-[#6B6B6B] font-bold">{theirHits}/{TOTAL_SHIP_CELLS} hit</span>
+            <span className="font-mono text-xs text-[#9CA3AF] font-bold">{theirHits}/{TOTAL_SHIP_CELLS} hit</span>
           </div>
-          <div className="grid grid-cols-10 gap-0.5 w-full max-w-[320px] bg-[#1A1A1A] p-1 border-2 border-[#1A1A1A] shadow-[6px_6px_0px_#D1D1D1]">
+          <div className="grid grid-cols-10 gap-0.5 w-full max-w-[320px] bg-[#262B34] p-1 border-2 border-[#39414E] shadow-[6px_6px_0px_#2E343F]">
             {myFleet.map((cell, i) => {
               const shot = myIncoming[i];
               const kind = shot === 'hit' ? 'hit' : cell != null ? 'ship' : shot === 'miss' ? 'miss' : 'water';

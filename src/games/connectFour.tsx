@@ -123,20 +123,20 @@ function Board({ state, myId, dispatch }: BoardProps<ConnectFourState>) {
 
   return (
     <div className="flex flex-col items-center p-4 sm:p-8 max-w-2xl mx-auto w-full">
-      <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#1A1A1A] pb-4">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#1A1A1A]">Connect 4</h1>
-        <span className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B]">Room ID: #{state.roomId}</span>
+      <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#39414E] pb-4">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Connect 4</h1>
+        <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Room ID: #{state.roomId}</span>
       </div>
 
       <div className={cn(
-        "flex items-center gap-3 px-6 py-2 border-2 border-[#1A1A1A] font-bold text-sm sm:text-lg uppercase shadow-[4px_4px_0px_#1A1A1A] mb-8",
-        myTurn ? "bg-[#E63946] text-white" : "bg-[#1A1A1A] text-white"
+        "flex items-center gap-3 px-6 py-2 border-2 border-[#39414E] font-bold text-sm sm:text-lg uppercase shadow-[4px_4px_0px_#454C5A] mb-8",
+        myTurn ? "bg-[#E63946] text-white" : "bg-[#262B34] text-white"
       )}>
         <span className="inline-block w-5 h-5 rounded-full border-2 border-white" style={{ background: myColor }} />
         {myTurn ? 'Your turn' : `${opponent?.name ?? 'Opponent'}'s turn`}
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5 sm:gap-2 bg-[#1A1A1A] p-2 sm:p-3 border-2 border-[#1A1A1A] shadow-[8px_8px_0px_#D1D1D1] w-full max-w-[480px]">
+      <div className="grid grid-cols-7 gap-1.5 sm:gap-2 bg-[#262B34] p-2 sm:p-3 border-2 border-[#39414E] shadow-[8px_8px_0px_#2E343F] w-full max-w-[480px]">
         {Array.from({ length: COLS }, (_, col) => {
           const full = landingRow(state.board, col) < 0;
           const canPlay = myTurn && !full;
@@ -147,7 +147,7 @@ function Board({ state, myId, dispatch }: BoardProps<ConnectFourState>) {
               onClick={() => dispatch({ col })}
               className={cn(
                 "flex flex-col gap-1.5 sm:gap-2 rounded-md p-0.5 transition-colors touch-manipulation",
-                canPlay && "hover:bg-white/10"
+                canPlay && "hover:bg-[#1A1D24]/10"
               )}
             >
               {Array.from({ length: ROWS }, (_, row) => {
@@ -157,7 +157,7 @@ function Board({ state, myId, dispatch }: BoardProps<ConnectFourState>) {
                   <span
                     key={row}
                     className={cn(
-                      "aspect-square rounded-full bg-[#F4F1EA] border border-[#00000022]",
+                      "aspect-square rounded-full bg-[#0F1117] border border-[#ffffff14]",
                       winning.has(cellIdx) && "ring-2 ring-white"
                     )}
                     style={cell ? { background: colorOf(cell) } : undefined}
@@ -168,7 +168,7 @@ function Board({ state, myId, dispatch }: BoardProps<ConnectFourState>) {
           );
         })}
       </div>
-      <p className="text-[10px] sm:text-xs font-bold text-[#6B6B6B] border-l-2 border-[#E63946] pl-3 uppercase tracking-widest mt-6">
+      <p className="text-[10px] sm:text-xs font-bold text-[#9CA3AF] border-l-2 border-[#E63946] pl-3 uppercase tracking-widest mt-6">
         Drop a disc into any column. Four in a row wins.
       </p>
     </div>

@@ -5,7 +5,7 @@ import { cn } from '../lib/utils';
 // Classic pencil-and-paper Dots & Boxes on a DOTS×DOTS lattice of dots. Players
 // take turns drawing one edge between adjacent dots; closing the 4th side of a
 // box claims it AND earns another turn. Most boxes when the grid fills wins.
-const DOTS = 5; // dots per side -> (DOTS-1)^2 = 16 boxes
+const DOTS = 8; // dots per side -> (DOTS-1)^2 = 49 boxes
 const COLS = DOTS - 1; // boxes / edges per row
 
 // Horizontal edges: DOTS rows × (DOTS-1) per row. hIdx(r,c), r∈[0,DOTS), c∈[0,COLS)
@@ -174,7 +174,7 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
       const evenR = R % 2 === 0;
       const evenC = C % 2 === 0;
       if (evenR && evenC) {
-        cells.push(<span key={`${R}-${C}`} className="w-3 h-3 rounded-full bg-[#1A1A1A] place-self-center" />);
+        cells.push(<span key={`${R}-${C}`} className="w-2.5 h-2.5 rounded-full bg-[#C9CED6] place-self-center" />);
       } else if (evenR && !evenC) {
         // Horizontal edge between dots
         const i = hIdx(R / 2, (C - 1) / 2);
@@ -185,12 +185,12 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
             key={`${R}-${C}`}
             disabled={!myTurn || drawn}
             onClick={() => place('h', i, drawn)}
-            className="group flex items-center justify-center h-3 touch-manipulation"
+            className="group flex items-center justify-center h-2.5 touch-manipulation"
           >
             <span
               className={cn(
                 'h-1.5 w-full rounded-full transition-colors',
-                drawn ? '' : 'bg-[#E6E1D4] group-hover:bg-[#1A1A1A]/30',
+                drawn ? '' : 'bg-[#2E343F] group-hover:bg-[#C9CED6]/40',
               )}
               style={drawn ? { background: colorOf(owner) } : undefined}
             />
@@ -206,12 +206,12 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
             key={`${R}-${C}`}
             disabled={!myTurn || drawn}
             onClick={() => place('v', i, drawn)}
-            className="group flex items-center justify-center w-3 touch-manipulation"
+            className="group flex items-center justify-center w-2.5 touch-manipulation"
           >
             <span
               className={cn(
                 'w-1.5 h-full rounded-full transition-colors',
-                drawn ? '' : 'bg-[#E6E1D4] group-hover:bg-[#1A1A1A]/30',
+                drawn ? '' : 'bg-[#2E343F] group-hover:bg-[#C9CED6]/40',
               )}
               style={drawn ? { background: colorOf(owner) } : undefined}
             />
@@ -223,7 +223,7 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
         cells.push(
           <span
             key={`${R}-${C}`}
-            className="flex items-center justify-center text-sm font-black uppercase"
+            className="flex items-center justify-center text-[11px] font-black uppercase"
             style={owner ? { background: `${colorOf(owner)}33`, color: colorOf(owner) } : undefined}
           >
             {owner ? state.players[owner]?.name?.charAt(0).toUpperCase() : ''}
@@ -234,13 +234,13 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
   }
 
   // Dots fixed-size, edges/boxes flexible so boxes render roughly square.
-  const colTemplate = Array.from({ length: tracks }, (_, k) => (k % 2 === 0 ? '14px' : '1fr')).join(' ');
+  const colTemplate = Array.from({ length: tracks }, (_, k) => (k % 2 === 0 ? '10px' : '1fr')).join(' ');
 
   return (
     <div className="flex flex-col items-center p-4 sm:p-8 max-w-xl mx-auto w-full">
-      <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#1A1A1A] pb-4">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#1A1A1A]">Dots &amp; Boxes</h1>
-        <span className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B]">Room ID: #{state.roomId}</span>
+      <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#39414E] pb-4">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Dots &amp; Boxes</h1>
+        <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Room ID: #{state.roomId}</span>
       </div>
 
       {/* Scoreboard */}
@@ -249,8 +249,8 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
           <div
             key={p.id}
             className={cn(
-              'flex-1 border-2 border-[#1A1A1A] p-3 text-center',
-              state.turnId === p.id ? 'text-white' : 'bg-white text-[#1A1A1A]',
+              'flex-1 border-2 border-[#39414E] p-3 text-center',
+              state.turnId === p.id ? 'text-white' : 'bg-[#1A1D24] text-[#F5F6F7]',
             )}
             style={state.turnId === p.id ? { background: colorOf(p.id) } : undefined}
           >
@@ -261,20 +261,20 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
       </div>
 
       <div className={cn(
-        'px-6 py-2 border-2 border-[#1A1A1A] font-bold text-sm uppercase shadow-[4px_4px_0px_#1A1A1A] mb-6',
-        myTurn ? 'bg-[#E76F51] text-white' : 'bg-[#1A1A1A] text-white',
+        'px-6 py-2 border-2 border-[#39414E] font-bold text-sm uppercase shadow-[4px_4px_0px_#454C5A] mb-6',
+        myTurn ? 'bg-[#E76F51] text-white' : 'bg-[#262B34] text-white',
       )}>
         {myTurn ? 'Your turn — draw a line' : `${opponent?.name ?? 'Opponent'}'s turn`}
       </div>
 
       <div
-        className="grid w-full max-w-[360px] aspect-square select-none"
+        className="grid w-full max-w-[440px] aspect-square select-none"
         style={{ gridTemplateColumns: colTemplate, gridTemplateRows: colTemplate }}
       >
         {cells}
       </div>
 
-      <p className="text-[10px] font-mono uppercase tracking-widest text-[#8B8B8B] mt-6 text-center">
+      <p className="text-[10px] font-mono uppercase tracking-widest text-[#8A92A0] mt-6 text-center">
         Close the 4th side of a box to claim it &amp; go again · most boxes wins
       </p>
     </div>

@@ -50,6 +50,15 @@ export function useLocalSession<S extends BaseState>(
     commit(def.reducer(room, HUMAN, action));
   }, [commit, def]);
 
+  // Rematch: restart straight into a fresh game with the same seating (human
+  // first), regenerating any random setup — no return to a waiting screen.
+  const rematch = useCallback(() => {
+    const room = stateRef.current;
+    if (!room) return;
+    const fresh = def.createInitialState(room.roomId);
+    commit(def.start({ ...fresh, players: room.players }));
+  }, [commit, def]);
+
   // Drive the bot. Re-runs after every commit, so a bot that earns another turn
   // (e.g. closing a box) simply keeps moving as the state advances.
   useEffect(() => {
@@ -75,5 +84,6 @@ export function useLocalSession<S extends BaseState>(
     join,
     start,
     move,
+    rematch,
   };
 }

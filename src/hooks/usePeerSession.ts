@@ -17,6 +17,7 @@ export interface Session<S extends BaseState> {
   join: (roomId: string, name: string) => void;
   start: () => void;
   move: (action: GameAction) => void;
+  rematch: () => void;
 }
 
 export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Session<S> {
@@ -73,6 +74,20 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     commit(def.reducer(room, pid, action));
   }, [commit, def]);
 
+  // Rematch: restart straight into a fresh game with the same two players —
+  // no return to the lobby or room code. Regenerates random setup (shuffles,
+  // fleets, cards) by rebuilding from a clean initial state.
+  const hostRematch = useCallback(() => {
+    const room = stateRef.current;
+    if (!room) return;
+    if (Object.keys(room.players).length !== 2) {
+      showError('Need both players to rematch.');
+      return;
+    }
+    const fresh = def.createInitialState(room.roomId);
+    commit(def.start({ ...fresh, players: room.players }));
+  }, [commit, def, showError]);
+
   const hostRemove = useCallback((pid: string) => {
     const room = stateRef.current;
     if (!room || !room.players[pid]) return;
@@ -99,10 +114,11 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     switch (data.kind) {
       case 'join': hostSeat(c.peer, data.name); break;
       case 'start': hostStart(); break;
+      case 'rematch': hostRematch(); break;
       case 'action': hostAction(c.peer, data.action); break;
       default: break;
     }
-  }, [hostSeat, hostStart, hostAction]);
+  }, [hostSeat, hostStart, hostRematch, hostAction]);
 
   const sendToHost = useCallback((msg: NetMessage<S>) => {
     connsRef.current[0]?.send(msg);
@@ -194,10 +210,15 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     else sendToHost({ kind: 'action', action });
   }, [hostAction, sendToHost]);
 
+  const rematch = useCallback(() => {
+    if (isHostRef.current) hostRematch();
+    else sendToHost({ kind: 'rematch' });
+  }, [hostRematch, sendToHost]);
+
   useEffect(() => () => {
     if (errTimer.current) clearTimeout(errTimer.current);
     peerRef.current?.destroy();
   }, []);
 
-  return { state, myId, conn, error, join, start, move };
+  return { state, myId, conn, error, join, start, move, rematch };
 }
