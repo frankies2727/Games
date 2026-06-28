@@ -118,6 +118,48 @@ function reducer(state: BattleshipState, pid: string, action: GameAction): Battl
   return state;
 }
 
+// Bot: auto-confirm its randomized fleet, then hunt. It targets cells adjacent
+// to existing hits, and otherwise fires at unshot cells on a checkerboard
+// (every ship is ≥2 long, so parity guarantees coverage with half the shots).
+function botMove(state: BattleshipState, botId: string): GameAction | null {
+  if (state.status !== 'playing') return null;
+  const ids = Object.keys(state.players);
+  const human = ids.find((id) => id !== botId);
+  if (!human) return null;
+
+  if (state.phase === 'placing') {
+    return state.ready[botId] ? null : { a: 'ready' };
+  }
+  if (state.turnId !== botId) return null;
+
+  const shots = state.incoming[human] || []; // where the bot has already fired
+  const open = (i: number) => i >= 0 && i < SIZE * SIZE && shots[i] == null;
+
+  const targets: number[] = [];
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    if (shots[i] !== 'hit') continue;
+    const r = Math.floor(i / SIZE);
+    const c = i % SIZE;
+    for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const rr = r + dr;
+      const cc = c + dc;
+      if (rr >= 0 && rr < SIZE && cc >= 0 && cc < SIZE && open(rr * SIZE + cc)) targets.push(rr * SIZE + cc);
+    }
+  }
+
+  let pool = targets;
+  if (!pool.length) {
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      if (open(i) && (Math.floor(i / SIZE) + (i % SIZE)) % 2 === 0) pool.push(i);
+    }
+  }
+  if (!pool.length) {
+    for (let i = 0; i < SIZE * SIZE; i++) if (open(i)) pool.push(i);
+  }
+  if (!pool.length) return null;
+  return { a: 'fire', cell: pool[Math.floor(Math.random() * pool.length)] };
+}
+
 // Hide each opponent's un-hit ships from the viewer.
 function redact(state: BattleshipState, viewerId: string): BattleshipState {
   if (!state.fleets || Object.keys(state.fleets).length === 0) return state;
@@ -278,6 +320,7 @@ export const battleship: GameDefinition<BattleshipState> = {
   start,
   reducer,
   redact,
+  botMove,
   Board,
   gameOverMessage: (state, myId) =>
     state.winnerId === myId ? '🎉 Enemy fleet destroyed — you win!' : `${state.players[state.winnerId ?? '']?.name ?? 'Opponent'} sank your fleet!`,

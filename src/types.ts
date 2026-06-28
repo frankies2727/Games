@@ -42,6 +42,12 @@ export interface GameDefinition<S extends BaseState = BaseState> {
   /** Apply a player's move; return the next state. */
   reducer: (state: S, playerId: string, action: GameAction) => S;
   Board: ComponentType<BoardProps<S>>;
+  /**
+   * Optional bot policy. Given the state as the bot sees it (post-`redact`) and
+   * the bot's player id, return the action it wants to take, or `null` if it's
+   * not the bot's move. Games that define this get a "Play vs Computer" option.
+   */
+  botMove?: (state: S, botId: string) => GameAction | null;
   /** Optional custom end-screen line. */
   gameOverMessage?: (state: S, myId: string) => string;
   /**

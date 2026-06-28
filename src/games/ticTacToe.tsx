@@ -49,6 +49,34 @@ function reducer(state: TicTacToeState, pid: string, action: GameAction): TicTac
   return { ...state, board, turnId: pid === ids[0] ? ids[1] : ids[0] };
 }
 
+// Bot: win if it can, else block, else prefer center > corners > edges.
+function botMove(state: TicTacToeState, botId: string): GameAction | null {
+  if (state.status !== 'playing' || state.turnId !== botId) return null;
+  const b = state.board;
+  const ids = Object.keys(state.players);
+  const opp = botId === ids[0] ? ids[1] : ids[0];
+  const empties = b.map((c, i) => (c === null ? i : -1)).filter((i) => i >= 0);
+
+  const finisher = (who: string): number => {
+    for (const i of empties) {
+      const t = b.slice();
+      t[i] = who;
+      if (winnerLine(t, who)) return i;
+    }
+    return -1;
+  };
+
+  let i = finisher(botId);
+  if (i < 0) i = finisher(opp);
+  if (i < 0 && b[4] === null) i = 4;
+  if (i < 0) {
+    const corners = [0, 2, 6, 8].filter((c) => b[c] === null);
+    const pool = corners.length ? corners : empties;
+    i = pool[Math.floor(Math.random() * pool.length)];
+  }
+  return i >= 0 ? { index: i } : null;
+}
+
 function Board({ state, myId, dispatch }: BoardProps<TicTacToeState>) {
   const ids = Object.keys(state.players);
   const symbolOf = (pid: string | null) => (pid === ids[0] ? 'X' : pid === ids[1] ? 'O' : '');
@@ -105,6 +133,7 @@ export const ticTacToe: GameDefinition<TicTacToeState> = {
   createInitialState,
   start,
   reducer,
+  botMove,
   Board,
   gameOverMessage: (state, myId) =>
     !state.winnerId

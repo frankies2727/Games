@@ -78,15 +78,31 @@ function reducer(state: HighLowState, pid: string, action: GameAction): HighLowS
     if (outcome === 'correct') scores[guesserId] = (scores[guesserId] ?? 0) + 1;
 
     const lastResult = { guesserId, giverId: pid, guess, prev, given, outcome };
-    const base = { ...state, currentCard: given, scores, lastResult, pendingGuess: null, guessCommitted: false };
+    const base = { ...state, scores, lastResult, pendingGuess: null, guessCommitted: false };
 
     if (scores[guesserId] >= TARGET_SCORE) {
-      return { ...base, status: 'gameover', winnerId: guesserId, guesserId: null };
+      return { ...base, currentCard: given, status: 'gameover', winnerId: guesserId, guesserId: null };
     }
-    return { ...base, guesserId: guesserId === ids[0] ? ids[1] : ids[0] };
+    // Each new round starts from a fresh random card rather than carrying the
+    // dealt card over, so the base value can't be steered round-to-round.
+    return { ...base, currentCard: draw(), guesserId: guesserId === ids[0] ? ids[1] : ids[0] };
   }
 
   return state;
+}
+
+// Bot opponent: as guesser, call based on where the current card sits in the
+// range; as dealer, hand over a blind random card (it can't see the call).
+function botMove(state: HighLowState, botId: string): GameAction | null {
+  if (state.status !== 'playing') return null;
+  if (state.guesserId === botId) {
+    if (state.guessCommitted) return null; // already called, waiting on dealer
+    const mid = (CARD_MIN + CARD_MAX) / 2;
+    return { guess: state.currentCard <= mid ? 'higher' : 'lower' };
+  }
+  // Bot is the dealer — only deal once the guesser has locked in a call.
+  if (!state.guessCommitted) return null;
+  return { give: draw() };
 }
 
 // Keep the guesser's secret call away from the dealer until the round resolves.
@@ -204,6 +220,7 @@ export const highLow: GameDefinition<HighLowState> = {
   start,
   reducer,
   redact,
+  botMove,
   Board,
   gameOverMessage: (state, myId) =>
     state.winnerId === myId

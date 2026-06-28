@@ -7,9 +7,11 @@ interface GameOverProps {
   state: BaseState;
   myId: string;
   onExit: () => void;
+  /** When provided (e.g. vs computer), offers an immediate rematch. */
+  onPlayAgain?: () => void;
 }
 
-export function GameOver({ def, state, myId, onExit }: GameOverProps) {
+export function GameOver({ def, state, myId, onExit, onPlayAgain }: GameOverProps) {
   const message = def.gameOverMessage
     ? def.gameOverMessage(state, myId)
     : !state.winnerId
@@ -30,6 +32,14 @@ export function GameOver({ def, state, myId, onExit }: GameOverProps) {
           <h1 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tighter uppercase italic">GAME OVER</h1>
           <p className="text-base mt-4 text-[#6B6B6B] font-mono tracking-widest uppercase">{message}</p>
         </div>
+        {onPlayAgain && (
+          <button
+            onClick={onPlayAgain}
+            className="w-full py-4 bg-[#E63946] hover:bg-[#D90429] active:translate-y-1 active:shadow-none transition-all text-white font-bold border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#1A1A1A] hover:shadow-[2px_2px_0px_#1A1A1A] uppercase tracking-[0.2em] mt-4"
+          >
+            ↻ Play Again
+          </button>
+        )}
         <button
           onClick={onExit}
           className="w-full py-4 bg-[#1A1A1A] hover:bg-[#2D2D2D] active:translate-y-1 active:shadow-none transition-all text-white font-bold border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#E63946] hover:shadow-[2px_2px_0px_#E63946] uppercase tracking-[0.2em] mt-4"

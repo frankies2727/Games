@@ -1,7 +1,8 @@
 # Paper Games
 
-A small gallery of chill, real-time **2-player** pencil-and-paper games. Pick one
-from the home screen:
+A small gallery of chill, real-time pencil-and-paper games. Play **2-player** over
+a shared room code, or hit **Play vs Computer** on any game's join screen to take
+on a built-in bot solo (offline). Pick one from the home screen:
 
 - **Paper Numbers** — one player is the **Finder** (races to spot a target number
   on a 10×10 grid; claimed numbers turn red) while the other is the **Dotter**
@@ -10,9 +11,12 @@ from the home screen:
 - **Tic-Tac-Toe** — the classic 3-in-a-row duel.
 - **Connect 4** — drop discs and line up four.
 - **High-Low** — the guesser secretly calls higher or lower, then the *opponent
-  deals a card blind* (they can't see the call). Correct call scores; first to 6.
+  deals a card blind* (they can't see the call). Each round starts from a fresh
+  random card. Correct call scores; first to 6.
 - **Battleship** — randomize your fleet, then hunt the enemy ships. Opponent ship
   positions are masked server-side (`redact`) so they can't be read off the wire.
+- **Dots & Boxes** — take turns drawing the edges of a dot grid; close the fourth
+  side of a box to claim it and take another turn. Most boxes wins.
 
 Every game is fully **peer-to-peer**: the two browsers connect directly via WebRTC
 (using [PeerJS](https://peerjs.com) for the initial handshake), so there's no
@@ -26,6 +30,12 @@ Each game is a self-contained `GameDefinition` in `src/games/` (initial state,
 `start`, a pure `reducer`, and a `Board` component). Add it to the registry in
 `src/games/index.ts` and it shows up in the gallery automatically — the
 peer-to-peer networking in `src/hooks/usePeerSession.ts` is game-agnostic.
+
+To make a game playable solo, add an optional `botMove(state, botId)` to its
+definition that returns the action the bot should take (or `null` when it isn't
+the bot's turn). Games with a `botMove` automatically get the **Play vs Computer**
+button; `src/hooks/useLocalSession.ts` runs the same `reducer` locally and drives
+the bot after each move.
 
 ## How to play
 

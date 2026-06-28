@@ -4,9 +4,11 @@ interface JoinGameProps {
   gameName: string;
   tagline?: string;
   onJoin: (roomId: string, name: string) => void;
+  /** When provided, shows a "Play vs Computer" shortcut (solo, offline). */
+  onPlayBot?: () => void;
 }
 
-export function JoinGame({ gameName, tagline, onJoin }: JoinGameProps) {
+export function JoinGame({ gameName, tagline, onJoin, onPlayBot }: JoinGameProps) {
   const [roomId, setRoomId] = useState('');
   const [name, setName] = useState('');
 
@@ -48,6 +50,23 @@ export function JoinGame({ gameName, tagline, onJoin }: JoinGameProps) {
           >
             Join Game
           </button>
+
+          {onPlayBot && (
+            <>
+              <div className="flex items-center gap-3" aria-hidden>
+                <span className="h-px flex-1 bg-[#D1D1D1]" />
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#8B8B8B]">or</span>
+                <span className="h-px flex-1 bg-[#D1D1D1]" />
+              </div>
+              <button
+                onClick={onPlayBot}
+                className="w-full py-4 px-6 bg-white hover:bg-[#F4F1EA] active:translate-y-1 active:shadow-none transition-all text-[#1A1A1A] font-bold border-2 border-[#1A1A1A] shadow-[4px_4px_0px_#1A1A1A] hover:shadow-[2px_2px_0px_#1A1A1A] uppercase tracking-[0.2em]"
+              >
+                🤖 Play vs Computer
+              </button>
+            </>
+          )}
+
           <p className="text-[10px] text-center text-[#8B8B8B] font-mono leading-relaxed">
             First to a code hosts the room. Share the same code with one friend to join them.
           </p>

@@ -72,6 +72,46 @@ function reducer(state: ConnectFourState, pid: string, action: GameAction): Conn
   return { ...state, board, turnId: pid === ids[0] ? ids[1] : ids[0] };
 }
 
+// Bot: win if possible, block an opponent win, avoid handing the opponent an
+// immediate win on top of its drop, and otherwise favour central columns.
+function botMove(state: ConnectFourState, botId: string): GameAction | null {
+  if (state.status !== 'playing' || state.turnId !== botId) return null;
+  const ids = Object.keys(state.players);
+  const opp = botId === ids[0] ? ids[1] : ids[0];
+  const open = Array.from({ length: COLS }, (_, c) => c).filter((c) => landingRow(state.board, c) >= 0);
+  if (!open.length) return null;
+
+  const winningCol = (who: string): number => {
+    for (const c of open) {
+      const row = landingRow(state.board, c);
+      const t = state.board.slice();
+      t[idx(row, c)] = who;
+      if (checkWin(t, who)) return c;
+    }
+    return -1;
+  };
+
+  let col = winningCol(botId);
+  if (col < 0) col = winningCol(opp);
+  if (col < 0) {
+    // Don't play a column that lets the opponent win directly on top.
+    const safe = open.filter((c) => {
+      const row = landingRow(state.board, c);
+      const t = state.board.slice();
+      t[idx(row, c)] = botId;
+      const row2 = landingRow(t, c);
+      if (row2 < 0) return true;
+      const t2 = t.slice();
+      t2[idx(row2, c)] = opp;
+      return !checkWin(t2, opp);
+    });
+    const pool = safe.length ? safe : open;
+    const preference = [3, 2, 4, 1, 5, 0, 6];
+    col = preference.find((c) => pool.includes(c)) ?? pool[0];
+  }
+  return { col };
+}
+
 function Board({ state, myId, dispatch }: BoardProps<ConnectFourState>) {
   const ids = Object.keys(state.players);
   const colorOf = (pid: string | null) =>
@@ -144,6 +184,7 @@ export const connectFour: GameDefinition<ConnectFourState> = {
   createInitialState,
   start,
   reducer,
+  botMove,
   Board,
   gameOverMessage: (state, myId) =>
     !state.winnerId
