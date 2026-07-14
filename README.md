@@ -13,10 +13,20 @@ on a built-in bot solo (offline). Pick one from the home screen:
 - **High-Low** — the guesser secretly calls higher or lower, then the *opponent
   deals a card blind* (they can't see the call). Each round starts from a fresh
   random card. Correct call scores; first to 6.
-- **Battleship** — randomize your fleet, then hunt the enemy ships. Opponent ship
-  positions are masked server-side (`redact`) so they can't be read off the wire.
-- **Dots & Boxes** — take turns drawing the edges of a dot grid; close the fourth
-  side of a box to claim it and take another turn. Most boxes wins.
+- **Battleship** — arrange your fleet (shuffle a **random** layout or **place each
+  ship by hand**), then hunt the enemy ships. The game only starts once **both**
+  players ready up. Opponent ship positions are masked server-side (`redact`) so
+  they can't be read off the wire.
+- **Dots & Boxes** — pick a **quick** (5×5) or **long** (8×8) board, then take
+  turns drawing the edges of the grid; close the fourth side of a box to claim it
+  and take another turn. Most boxes wins.
+- **Sorry!** — a pared-down take on the board game: draw a card, move a pawn around
+  a shared loop and into your home lane, and land on a rival to bump it back to its
+  pen (a "Sorry!" card yanks a penned pawn straight onto an opponent). First to get
+  all four pawns Home wins.
+
+When a game ends, the final board stays on screen behind the result panel — hit
+**View Final Board** to inspect exactly how it played out before heading back.
 
 Every game is fully **peer-to-peer**: the two browsers connect directly via WebRTC
 (using [PeerJS](https://peerjs.com) for the initial handshake), so there's no

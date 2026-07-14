@@ -79,6 +79,22 @@ function reducer(state: PaperNumbersState, pid: string, action: GameAction): Pap
   return state;
 }
 
+// Bot: when it holds the Finder role it claims the current target (swapping
+// roles); when it's the Dotter it fills the next open dot on its sheet. The
+// session's move delay acts as the bot's "reaction time" each step.
+function botMove(state: PaperNumbersState, botId: string): GameAction | null {
+  if (state.status !== 'playing') return null;
+  if (state.finderId === botId) {
+    if (state.targetNumber == null) return null;
+    return { t: 'find', num: state.targetNumber };
+  }
+  const dots = state.playerDots[botId];
+  if (!dots) return null;
+  const next = dots.findIndex((d) => !d);
+  if (next < 0) return null;
+  return { t: 'dot', index: next };
+}
+
 function Board({ state, myId, dispatch }: BoardProps<PaperNumbersState>) {
   const isMyTurnToFind = state.finderId === myId;
   const opponent = Object.values(state.players).find((p) => p.id !== myId);
@@ -265,6 +281,7 @@ export const paperNumbers: GameDefinition<PaperNumbersState> = {
   createInitialState,
   start,
   reducer,
+  botMove,
   Board,
   gameOverMessage: (state, myId) =>
     state.winnerId === myId

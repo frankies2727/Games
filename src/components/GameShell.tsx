@@ -56,10 +56,15 @@ function OnlineGame({ def, onExit, onPlayBot }: { def: GameDefinition<any>; onEx
         <JoinGame gameName={def.name} tagline={def.tagline} onJoin={join} onPlayBot={def.botMove ? onPlayBot : undefined} />
       ) : state.status === 'waiting' ? (
         <Lobby gameName={def.name} state={state} myId={myId} onStart={start} />
-      ) : state.status === 'playing' ? (
-        <Board state={state} myId={myId} dispatch={move} />
       ) : (
-        <GameOver def={def} state={state} myId={myId} onExit={onExit} onPlayAgain={rematch} />
+        // Keep the final board rendered underneath so players can see exactly
+        // how the game ended; the overlay sits on top and can be dismissed.
+        <>
+          <Board state={state} myId={myId} dispatch={move} />
+          {state.status === 'gameover' && (
+            <GameOver def={def} state={state} myId={myId} onExit={onExit} onPlayAgain={rematch} />
+          )}
+        </>
       )}
     </Chrome>
   );
@@ -81,10 +86,13 @@ function BotGame({ def, onExit }: { def: GameDefinition<any>; onExit: () => void
           <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-[#39414E]" />
           <p className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Dealing you in…</p>
         </div>
-      ) : state.status === 'playing' ? (
-        <Board state={state} myId={myId} dispatch={move} />
       ) : (
-        <GameOver def={def} state={state} myId={myId} onExit={onExit} onPlayAgain={rematch} />
+        <>
+          <Board state={state} myId={myId} dispatch={move} />
+          {state.status === 'gameover' && (
+            <GameOver def={def} state={state} myId={myId} onExit={onExit} onPlayAgain={rematch} />
+          )}
+        </>
       )}
     </Chrome>
   );

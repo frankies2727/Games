@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { BaseState, BoardProps, GameAction, GameDefinition } from '../types';
 import { cn } from '../lib/utils';
 
 const SIZE = 10;
 const SHIPS = [5, 4, 3, 3, 2]; // carrier, battleship, cruiser, submarine, destroyer
+const SHIP_NAMES = ['Carrier', 'Battleship', 'Cruiser', 'Submarine', 'Destroyer'];
 const TOTAL_SHIP_CELLS = SHIPS.reduce((a, b) => a + b, 0); // 17
 const idx = (r: number, c: number) => r * SIZE + c;
 
@@ -37,6 +39,28 @@ function randomFleet(): (number | null)[] {
     }
   });
   return cells;
+}
+
+// Cells a ship of `size` would occupy starting at `bow`, or null if it runs off
+// the board. Horizontal extends right, vertical extends down.
+function shipCellsAt(bow: number, size: number, horiz: boolean): number[] | null {
+  const r = Math.floor(bow / SIZE);
+  const c = bow % SIZE;
+  const cells: number[] = [];
+  for (let k = 0; k < size; k++) {
+    const rr = horiz ? r : r + k;
+    const cc = horiz ? c + k : c;
+    if (rr >= SIZE || cc >= SIZE) return null;
+    cells.push(idx(rr, cc));
+  }
+  return cells;
+}
+
+// True once every ship is present on the board exactly once.
+function fleetComplete(fleet: (number | null)[]): boolean {
+  const counts = SHIPS.map(() => 0);
+  for (const v of fleet) if (v != null) counts[v]++;
+  return counts.every((n, shipId) => n === SHIPS[shipId]);
 }
 
 function createInitialState(roomId: string): BattleshipState {
@@ -74,10 +98,36 @@ function reducer(state: BattleshipState, pid: string, action: GameAction): Battl
 
   if (state.phase === 'placing') {
     if (state.ready[pid]) return state;
+
+    // Auto-arrange the whole fleet at random.
     if (action.a === 'shuffle') {
       return { ...state, fleets: { ...state.fleets, [pid]: randomFleet() } };
     }
+
+    // Wipe the board so the player can position ships by hand.
+    if (action.a === 'clear') {
+      return { ...state, fleets: { ...state.fleets, [pid]: Array(SIZE * SIZE).fill(null) } };
+    }
+
+    // Manually drop one ship. Validates fit, straight line, and no overlap with
+    // the player's other ships (the ship being placed may be repositioned).
+    if (action.a === 'place') {
+      const shipId = action.shipId as number;
+      const cells = action.cells as number[];
+      if (shipId < 0 || shipId >= SHIPS.length) return state;
+      if (!Array.isArray(cells) || cells.length !== SHIPS[shipId]) return state;
+      if (cells.some((i) => i < 0 || i >= SIZE * SIZE)) return state;
+      const current = state.fleets[pid] || Array(SIZE * SIZE).fill(null);
+      const occupied = current.some((v, i) => v != null && v !== shipId && cells.includes(i));
+      if (occupied) return state;
+      const next = current.map((v) => (v === shipId ? null : v)); // lift the old copy
+      cells.forEach((i) => { next[i] = shipId; });
+      return { ...state, fleets: { ...state.fleets, [pid]: next } };
+    }
+
+    // Only ready up once the whole fleet is on the board.
     if (action.a === 'ready') {
+      if (!fleetComplete(state.fleets[pid] || [])) return state;
       const ready = { ...state.ready, [pid]: true };
       const bothReady = ids.length === 2 && ids.every((id) => ready[id]);
       return bothReady
@@ -193,6 +243,180 @@ function GridCell({ kind, onClick, clickable }: { key?: number; kind: 'water' | 
   );
 }
 
+// Placement phase: pick a layout style (random or by hand), then ready up.
+// The game only starts once *both* players have readied (see reducer).
+function PlacementBoard({
+  myFleet, roomId, iAmReady, bothPresent, opponentName, dispatch,
+}: {
+  myFleet: (number | null)[];
+  roomId: string;
+  iAmReady: boolean;
+  bothPresent: boolean;
+  opponentName?: string;
+  dispatch: (action: GameAction) => void;
+}) {
+  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
+  const [horiz, setHoriz] = useState(true);
+  const [hover, setHover] = useState<number | null>(null);
+
+  // Which ships are already on the board, and the next one still to place.
+  const placed = SHIPS.map(() => 0);
+  for (const v of myFleet) if (v != null) placed[v]++;
+  const isPlaced = (shipId: number) => placed[shipId] === SHIPS[shipId];
+  const [selected, setSelected] = useState(0);
+  const activeShip = isPlaced(selected) ? SHIPS.findIndex((_, s) => !isPlaced(s)) : selected;
+  const complete = fleetComplete(myFleet);
+
+  // Cells the currently-selected ship would occupy from a given bow cell.
+  const previewFor = (bow: number): number[] | null =>
+    activeShip < 0 ? null : shipCellsAt(bow, SHIPS[activeShip], horiz);
+  const overlaps = (cells: number[]) =>
+    cells.some((i) => myFleet[i] != null && myFleet[i] !== activeShip);
+
+  const previewCells = mode === 'manual' && hover != null ? previewFor(hover) : null;
+  const previewOk = previewCells != null && !overlaps(previewCells);
+
+  const placeAt = (bow: number) => {
+    if (activeShip < 0) return;
+    const cells = previewFor(bow);
+    if (!cells || overlaps(cells)) return;
+    dispatch({ a: 'place', shipId: activeShip, cells });
+    // Advance to the next unplaced ship, if any.
+    const nextPlaced = placed.slice();
+    nextPlaced[activeShip] = SHIPS[activeShip];
+    const next = SHIPS.findIndex((sz, s) => nextPlaced[s] !== sz);
+    setSelected(next < 0 ? activeShip : next);
+  };
+
+  const switchMode = (m: 'auto' | 'manual') => {
+    if (m === mode) return;
+    setMode(m);
+    dispatch({ a: m === 'auto' ? 'shuffle' : 'clear' });
+    setSelected(0);
+  };
+
+  return (
+    <div className="flex flex-col items-center p-4 sm:p-8 max-w-md mx-auto w-full">
+      <div className="w-full flex flex-col items-center mb-4 border-b-2 border-[#39414E] pb-4">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Battleship</h1>
+        <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Place your fleet · Room #{roomId}</span>
+      </div>
+
+      {iAmReady ? (
+        <>
+          <div className="grid grid-cols-10 gap-0.5 w-full max-w-[360px] bg-[#262B34] p-1 border-2 border-[#39414E] shadow-[6px_6px_0px_#2E343F] mb-6">
+            {myFleet.map((cell, i) => (
+              <GridCell key={i} kind={cell != null ? 'ship' : 'water'} />
+            ))}
+          </div>
+          <p className="text-sm font-mono uppercase tracking-widest text-[#9CA3AF] animate-pulse text-center">
+            {bothPresent ? `Waiting for ${opponentName ?? 'opponent'} to ready up…` : 'Waiting for an opponent to join…'}
+          </p>
+        </>
+      ) : (
+        <>
+          {/* Layout-style toggle */}
+          <div className="flex gap-2 w-full max-w-[360px] mb-4">
+            {(['auto', 'manual'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => switchMode(m)}
+                className={cn(
+                  'flex-1 py-2 text-xs font-bold uppercase tracking-widest border-2 border-[#39414E] transition-all',
+                  mode === m ? 'bg-[#E63946] text-white' : 'bg-[#1A1D24] text-[#9CA3AF] hover:text-white',
+                )}
+              >
+                {m === 'auto' ? '🎲 Random' : '✋ Place by hand'}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-10 gap-0.5 w-full max-w-[360px] bg-[#262B34] p-1 border-2 border-[#39414E] shadow-[6px_6px_0px_#2E343F] mb-4">
+            {myFleet.map((cell, i) => {
+              const inPreview = previewCells?.includes(i);
+              return (
+                <button
+                  key={i}
+                  disabled={mode !== 'manual'}
+                  onClick={() => mode === 'manual' && placeAt(i)}
+                  onMouseEnter={() => mode === 'manual' && setHover(i)}
+                  onMouseLeave={() => mode === 'manual' && setHover(null)}
+                  className={cn(
+                    'aspect-square border border-[#27313a] flex items-center justify-center touch-manipulation',
+                    cell != null ? 'bg-[#5b6770]' : 'bg-[#172029]',
+                    inPreview && (previewOk ? 'bg-[#2A9D8F]' : 'bg-[#E63946]'),
+                    mode === 'manual' && 'cursor-pointer hover:brightness-125',
+                  )}
+                />
+              );
+            })}
+          </div>
+
+          {mode === 'manual' && (
+            <div className="w-full max-w-[360px] mb-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#8A92A0]">Orientation</span>
+                <button
+                  onClick={() => setHoriz((h) => !h)}
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-widest bg-[#1A1D24] text-[#F5F6F7] border-2 border-[#39414E] shadow-[3px_3px_0px_#454C5A] active:translate-y-0.5 active:shadow-none"
+                >
+                  {horiz ? '↔ Horizontal' : '↕ Vertical'}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {SHIPS.map((size, shipId) => (
+                  <button
+                    key={shipId}
+                    onClick={() => setSelected(shipId)}
+                    className={cn(
+                      'px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-2 transition-all',
+                      isPlaced(shipId)
+                        ? 'border-[#2A9D8F] text-[#2A9D8F] bg-[#2A9D8F]/10'
+                        : activeShip === shipId
+                          ? 'border-[#E63946] text-white bg-[#E63946]/20'
+                          : 'border-[#39414E] text-[#9CA3AF]',
+                    )}
+                  >
+                    {SHIP_NAMES[shipId]} ({size}){isPlaced(shipId) ? ' ✓' : ''}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-[#8A92A0] text-center">
+                Pick a ship, set orientation, tap a cell to drop it.
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-4 w-full max-w-[360px]">
+            {mode === 'auto' ? (
+              <button
+                onClick={() => dispatch({ a: 'shuffle' })}
+                className="flex-1 py-4 bg-[#1A1D24] text-[#F5F6F7] font-bold uppercase tracking-widest border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all"
+              >
+                ⤭ Shuffle
+              </button>
+            ) : (
+              <button
+                onClick={() => dispatch({ a: 'clear' })}
+                className="flex-1 py-4 bg-[#1A1D24] text-[#F5F6F7] font-bold uppercase tracking-widest border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all"
+              >
+                ⌫ Clear
+              </button>
+            )}
+            <button
+              onClick={() => complete && dispatch({ a: 'ready' })}
+              disabled={!complete}
+              className="flex-1 py-4 bg-[#E63946] text-white font-bold uppercase tracking-widest border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all disabled:opacity-40 disabled:active:translate-y-0 disabled:shadow-[4px_4px_0px_#2E343F]"
+            >
+              ✓ Ready
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Board({ state, myId, dispatch }: BoardProps<BattleshipState>) {
   const opponent = Object.values(state.players).find((p) => p.id !== myId);
   const myFleet = state.fleets[myId] || Array(100).fill(null);
@@ -202,41 +426,15 @@ function Board({ state, myId, dispatch }: BoardProps<BattleshipState>) {
 
   // ---- Placement phase ----
   if (state.phase === 'placing') {
-    const iAmReady = state.ready[myId];
     return (
-      <div className="flex flex-col items-center p-4 sm:p-8 max-w-md mx-auto w-full">
-        <div className="w-full flex flex-col items-center mb-6 border-b-2 border-[#39414E] pb-4">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Battleship</h1>
-          <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Place your fleet · Room #{state.roomId}</span>
-        </div>
-
-        <div className="grid grid-cols-10 gap-0.5 w-full max-w-[360px] bg-[#262B34] p-1 border-2 border-[#39414E] shadow-[6px_6px_0px_#2E343F] mb-6">
-          {myFleet.map((cell, i) => (
-            <GridCell key={i} kind={cell != null ? 'ship' : 'water'} />
-          ))}
-        </div>
-
-        {iAmReady ? (
-          <p className="text-sm font-mono uppercase tracking-widest text-[#9CA3AF] animate-pulse">
-            Waiting for {opponent?.name ?? 'opponent'}…
-          </p>
-        ) : (
-          <div className="flex gap-4 w-full max-w-[360px]">
-            <button
-              onClick={() => dispatch({ a: 'shuffle' })}
-              className="flex-1 py-4 bg-[#1A1D24] text-[#F5F6F7] font-bold uppercase tracking-widest border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all"
-            >
-              ⤭ Shuffle
-            </button>
-            <button
-              onClick={() => dispatch({ a: 'ready' })}
-              className="flex-1 py-4 bg-[#E63946] text-white font-bold uppercase tracking-widest border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all"
-            >
-              ✓ Ready
-            </button>
-          </div>
-        )}
-      </div>
+      <PlacementBoard
+        myFleet={myFleet}
+        roomId={state.roomId}
+        iAmReady={state.ready[myId]}
+        bothPresent={Object.keys(state.players).length === 2}
+        opponentName={opponent?.name}
+        dispatch={dispatch}
+      />
     );
   }
 
