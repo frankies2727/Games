@@ -60,6 +60,7 @@ export interface BlackjackState extends BaseState {
   round: number;
   roundResult: string | null;
   revealWinner: string | null; // pid, 'push', or null
+  ready: Record<string, boolean>; // during reveal: who has clicked to deal on
 }
 
 function createInitialState(roomId: string): BlackjackState {
@@ -78,6 +79,7 @@ function createInitialState(roomId: string): BlackjackState {
     round: 0,
     roundResult: null,
     revealWinner: null,
+    ready: {},
   };
 }
 
@@ -103,6 +105,7 @@ function dealRound(state: BlackjackState): BlackjackState {
     round: state.round + 1,
     roundResult: null,
     revealWinner: null,
+    ready: {},
   };
 }
 
@@ -163,7 +166,14 @@ function reducer(state: BlackjackState, pid: string, action: GameAction): Blackj
   if (state.status !== 'playing') return state;
 
   if (state.phase === 'reveal') {
-    if (action.a === 'next') return dealRound(state);
+    // Hold on the result until every player has clicked to deal the next hand,
+    // so nobody gets rushed past seeing how the round went.
+    if (action.a === 'next') {
+      if (state.ready[pid]) return state;
+      const ready = { ...state.ready, [pid]: true };
+      const ids = Object.keys(state.players);
+      return ids.every((id) => ready[id]) ? dealRound(state) : { ...state, ready };
+    }
     return state;
   }
 
@@ -205,7 +215,9 @@ function reducer(state: BlackjackState, pid: string, action: GameAction): Blackj
 // below 17 and stand at 17+. In reveal, deal the next hand.
 function botMove(state: BlackjackState, botId: string): GameAction | null {
   if (state.status !== 'playing') return null;
-  if (state.phase === 'reveal') return { a: 'next' };
+  // Mark ready for the next hand once, but never advance it — the human decides
+  // when to deal on, so they can read the result at their own pace.
+  if (state.phase === 'reveal') return state.ready[botId] ? null : { a: 'next' };
   if (state.turnId !== botId || state.standing[botId]) return null;
   const hand = state.hands[botId] ?? [];
   const v = handValue(hand);
@@ -308,9 +320,13 @@ function Board({ state, myId, dispatch }: BoardProps<BlackjackState>) {
             <button onClick={() => canDouble && dispatch({ a: 'double' })} disabled={!canDouble} className="py-4 rounded-2xl font-black uppercase tracking-widest text-white active:translate-y-0.5 transition-all shadow-[0_5px_0_#FF5400] disabled:opacity-40 disabled:shadow-none" style={{ background: 'linear-gradient(145deg,#FF9E00,#FF5400)' }}>2×</button>
           </div>
         ) : inReveal ? (
-          <button onClick={() => dispatch({ a: 'next' })} className="w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-white active:translate-y-0.5 transition-all shadow-[0_5px_0_#3A0CA3]" style={{ background: 'linear-gradient(145deg,#8338EC,#3A0CA3)' }}>
-            ♻ Next Round
-          </button>
+          state.ready[myId] ? (
+            <p className="text-sm font-mono uppercase tracking-widest text-[#9CA3AF] animate-pulse text-center">Ready — waiting for {opponent?.name ?? 'opponent'}…</p>
+          ) : (
+            <button onClick={() => dispatch({ a: 'next' })} className="w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-white active:translate-y-0.5 transition-all shadow-[0_5px_0_#3A0CA3]" style={{ background: 'linear-gradient(145deg,#8338EC,#3A0CA3)' }}>
+              ♻ Next Round
+            </button>
+          )
         ) : (
           <p className="text-sm font-mono uppercase tracking-widest text-[#9CA3AF] animate-pulse">Waiting for {opponent?.name ?? 'opponent'}…</p>
         )}
