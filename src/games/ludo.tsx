@@ -55,6 +55,16 @@ const BASE_SLOTS: Record<Color, [number, number][]> = {
 const SAFE = new Set([0, 13, 26, 39, 8, 21, 34, 47]); // start squares + stars
 const FINISH = 56;
 
+// The bottom-left seat plays as the rainbow colour.
+const RAINBOW = 'conic-gradient(from 140deg,#EF4444,#F59E0B,#FDE047,#22C55E,#3B82F6,#A855F7,#EF4444)';
+const isRainbow = (c: Color) => c === 'blue';
+const fillOf = (c: Color) => (isRainbow(c) ? RAINBOW : COLOR_HEX[c]);
+const tintOf = (c: Color, alpha: string) => (isRainbow(c) ? RAINBOW : COLOR_HEX[c] + alpha);
+
+// Wildcard tiles (absolute loop indices): landing here fires a random powerup or
+// unlucky event. Chosen off the safe squares and start squares, one per arm.
+const WILD = new Set([3, 16, 29, 42]);
+
 // Which colours play, by seat order — 2 players sit diagonally for balance.
 const SEATING: Record<number, Color[]> = {
   2: ['red', 'yellow'],
@@ -69,6 +79,7 @@ export interface LudoState extends BaseState {
   turnId: string | null;
   die: number | null; // rolled value awaiting a move (null = must roll)
   mustRoll: boolean;
+  awaitingProceed: boolean; // turn is over; someone must click to pass play on
   lastEvent: string | null;
 }
 
@@ -84,6 +95,7 @@ function createInitialState(roomId: string): LudoState {
     turnId: null,
     die: null,
     mustRoll: true,
+    awaitingProceed: false,
     lastEvent: null,
   };
 }
@@ -97,7 +109,7 @@ function start(state: LudoState): LudoState {
     colorOf[id] = colors[i];
     tokens[id] = [-1, -1, -1, -1];
   });
-  return { ...state, status: 'playing', order, colorOf, tokens, turnId: order[0], die: null, mustRoll: true, lastEvent: null };
+  return { ...state, status: 'playing', order, colorOf, tokens, turnId: order[0], die: null, mustRoll: true, awaitingProceed: false, lastEvent: null };
 }
 
 const mainAbs = (color: Color, p: number) => (START_INDEX[color] + p) % 52; // valid for p in 0..50
@@ -145,16 +157,59 @@ const nextTurn = (state: LudoState, pid: string): string => {
   return state.order[(i + 1) % state.order.length];
 };
 
-function reducer(state: LudoState, pid: string, action: GameAction): LudoState {
-  if (state.status !== 'playing' || pid !== state.turnId) return state;
-  const name = state.players[pid]?.name ?? '—';
+// Opponent tokens sharing a loop cell (used for wildcard-induced re-landings).
+function loopCaptures(state: LudoState, tokens: Record<string, number[]>, pid: string, color: Color, toP: number): { player: string; token: number }[] {
+  if (toP < 0 || toP > 50) return [];
+  const absTo = mainAbs(color, toP);
+  if (SAFE.has(absTo)) return [];
+  const caps: { player: string; token: number }[] = [];
+  for (const other of state.order) {
+    if (other === pid) continue;
+    const oc = state.colorOf[other];
+    tokens[other].forEach((tp, ti) => { if (tp >= 0 && tp <= 50 && mainAbs(oc, tp) === absTo) caps.push({ player: other, token: ti }); });
+  }
+  return caps;
+}
 
-  // Roll the die. If nothing can move, the turn passes automatically.
+// Fire a random wildcard effect on the token that just landed on a wild tile.
+// Mutates `tokens`; returns whether it grants another roll plus a description.
+function applyWildcard(state: LudoState, tokens: Record<string, number[]>, pid: string, color: Color, tokenIdx: number): { extra: boolean; event: string } {
+  const p = tokens[pid][tokenIdx];
+  let extra = false;
+  let event: string;
+  switch (Math.floor(Math.random() * 5)) {
+    case 0: { const np = p + 3; if (np <= FINISH) tokens[pid][tokenIdx] = np; event = '🚀 Wildcard: Boost +3!'; break; }
+    case 1: { extra = true; event = '⭐ Wildcard: Extra roll!'; break; }
+    case 2: { tokens[pid][tokenIdx] = -1; event = '💀 Wildcard: SORRY — back to the pen!'; break; }
+    case 3: { tokens[pid][tokenIdx] = Math.max(p - 4, 0); event = '🐌 Wildcard: Slip back 4'; break; }
+    default: { const np = p + 6; if (np <= FINISH) tokens[pid][tokenIdx] = np; event = '✈️ Wildcard: Leap +6!'; break; }
+  }
+  const caps = loopCaptures(state, tokens, pid, color, tokens[pid][tokenIdx]);
+  for (const cap of caps) tokens[cap.player][cap.token] = -1;
+  if (caps.length) event += ` · captured ${caps.length}!`;
+  return { extra, event };
+}
+
+function reducer(state: LudoState, pid: string, action: GameAction): LudoState {
+  if (state.status !== 'playing') return state;
+
+  // Anyone may click to pass play on — so a solo player also advances bot turns.
+  if (action.a === 'proceed') {
+    if (!state.awaitingProceed || !state.turnId) return state;
+    const next = nextTurn(state, state.turnId);
+    return { ...state, turnId: next, mustRoll: true, die: null, awaitingProceed: false, lastEvent: `${state.players[next]?.name ?? '—'}'s turn` };
+  }
+
+  if (pid !== state.turnId || state.awaitingProceed) return state;
+  const name = state.players[pid]?.name ?? '—';
+  const color = state.colorOf[pid];
+
+  // Roll the die. If nothing can move, the turn ends (click Proceed to pass on).
   if (action.a === 'roll') {
     if (!state.mustRoll) return state;
     const die = 1 + Math.floor(Math.random() * 6);
     if (legalTokens(state, pid, die).length === 0) {
-      return { ...state, die: null, mustRoll: true, turnId: nextTurn(state, pid), lastEvent: `${name} rolled ${die} — no move` };
+      return { ...state, die, mustRoll: false, awaitingProceed: true, lastEvent: `${name} rolled ${die} — no move` };
     }
     return { ...state, die, mustRoll: false, lastEvent: `${name} rolled ${die}` };
   }
@@ -173,16 +228,26 @@ function reducer(state: LudoState, pid: string, action: GameAction): LudoState {
 
     let event = `${name} moved`;
     if (res.captures.length) event += ` · captured ${res.captures.length}!`;
-    const finished = res.to === FINISH;
-    if (finished) event += ' · a token Home!';
 
-    if (tokens[pid].every((t) => t === FINISH)) {
-      return { ...state, tokens, status: 'gameover', winnerId: pid, turnId: null, die: null, mustRoll: true, lastEvent: `${name} got all tokens Home!` };
+    // Landing on a wildcard tile fires a random powerup / unlucky effect.
+    let wildExtra = false;
+    if (res.to <= 50 && WILD.has(mainAbs(color, res.to))) {
+      const w = applyWildcard(state, tokens, pid, color, tokenIdx);
+      wildExtra = w.extra;
+      event += ` · ${w.event}`;
+    } else if (res.to === FINISH) {
+      event += ' · a token Home!';
     }
 
-    // A 6, a capture, or sending a token Home earns another roll.
-    const again = state.die === 6 || res.captures.length > 0 || finished;
-    return { ...state, tokens, die: null, mustRoll: true, turnId: again ? pid : nextTurn(state, pid), lastEvent: event };
+    if (tokens[pid].every((t) => t === FINISH)) {
+      return { ...state, tokens, status: 'gameover', winnerId: pid, turnId: null, die: null, mustRoll: true, awaitingProceed: false, lastEvent: `${name} got all tokens Home!` };
+    }
+
+    // A 6, a capture, sending a token Home, or a wildcard bonus earns another roll.
+    const again = state.die === 6 || res.captures.length > 0 || tokens[pid][tokenIdx] === FINISH || wildExtra;
+    if (again) return { ...state, tokens, die: null, mustRoll: true, awaitingProceed: false, turnId: pid, lastEvent: event };
+    // Otherwise the turn is over — hold until someone clicks Proceed.
+    return { ...state, tokens, mustRoll: false, awaitingProceed: true, lastEvent: event };
   }
 
   return state;
@@ -192,6 +257,7 @@ function reducer(state: LudoState, pid: string, action: GameAction): LudoState {
 // finish a token, then leave the pen, then advance the furthest.
 function botMove(state: LudoState, botId: string): GameAction | null {
   if (state.status !== 'playing' || state.turnId !== botId) return null;
+  if (state.awaitingProceed) return null; // a human clicks Proceed to pass play on
   if (state.mustRoll) return { a: 'roll' };
   if (state.die == null) return null;
   const opts = state.tokens[botId]
@@ -225,9 +291,6 @@ const START_CELL = new Map<number, Color>();
 const SLOT_AT = new Map<number, Color>(); // pen square -> colour
 (Object.keys(BASE_SLOTS) as Color[]).forEach((col) => BASE_SLOTS[col].forEach(([r, c]) => SLOT_AT.set(key(r, c), col)));
 
-// Translucent tint of a colour, so cells read as muted on the dark board.
-const tint = (hex: string, alpha: string) => hex + alpha;
-
 function Token({ color, active, count, onClick }: { color: Color; active?: boolean; count?: number; onClick?: () => void }) {
   return (
     <button
@@ -238,7 +301,7 @@ function Token({ color, active, count, onClick }: { color: Color; active?: boole
         'w-[85%] h-[85%] rounded-full border-2 border-white shadow-[0_1px_2px_rgba(0,0,0,0.6)] flex items-center justify-center text-[8px] font-black text-white',
         active ? 'ring-2 ring-white cursor-pointer animate-pulse' : '',
       )}
-      style={{ background: COLOR_HEX[color] }}
+      style={{ background: fillOf(color) }}
     >
       {count && count > 1 ? count : ''}
     </button>
@@ -273,19 +336,21 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
       const slotCol = SLOT_AT.get(k);
       const isCenter = r >= 6 && r <= 8 && c >= 6 && c <= 8;
       const safe = pathIdx != null && SAFE.has(pathIdx);
+      const wild = pathIdx != null && WILD.has(pathIdx);
       const here = tokensAt.get(k) ?? [];
 
       // Dark-mode palette: the board is dark, colours appear as muted tints on
       // the track's start squares, each colour's home lane, and its little pen.
       let bg = '#0F1117'; // empty corner space / void
       let border = 'transparent';
-      if (startCol) { bg = tint(COLOR_HEX[startCol], '77'); border = COLOR_HEX[startCol]; }
+      if (startCol) { bg = tintOf(startCol, '77'); border = COLOR_HEX[startCol]; }
+      else if (wild) { bg = '#2E2440'; border = '#A855F7'; }
       else if (pathIdx != null) { bg = safe ? '#2A313B' : '#1B1F27'; border = '#2E343F'; }
-      else if (homeCol) { bg = tint(COLOR_HEX[homeCol], '3A'); border = tint(COLOR_HEX[homeCol], '77'); }
+      else if (homeCol) { bg = tintOf(homeCol, '3A'); border = tintOf(homeCol, '77'); }
       else if (isCenter) { bg = '#181B22'; border = '#2E343F'; }
 
       const slotActive = slotCol != null && activeColors.has(slotCol);
-      if (slotActive) { bg = tint(COLOR_HEX[slotCol!], '4D'); border = COLOR_HEX[slotCol!]; }
+      if (slotActive) { bg = tintOf(slotCol!, '4D'); border = COLOR_HEX[slotCol!]; }
 
       // Dim a colour's lane/start when that colour isn't in this game.
       const laneCol = startCol ?? homeCol;
@@ -306,8 +371,9 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
             outline: border === 'transparent' ? undefined : `1px solid ${border}`,
           }}
         >
-          {safe && !startCol && !primary && <span className="text-[8px] text-[#5B6470] leading-none">✦</span>}
-          {slotActive && !primary && <span className="w-[62%] h-[62%] rounded-full border-2" style={{ borderColor: tint(COLOR_HEX[slotCol!], 'AA') }} />}
+          {wild && !primary && <span className="text-[10px] font-black text-[#C084FC] leading-none">?</span>}
+          {safe && !startCol && !wild && !primary && <span className="text-[8px] text-[#5B6470] leading-none">✦</span>}
+          {slotActive && !primary && <span className="w-[62%] h-[62%] rounded-full border-2" style={{ borderColor: tintOf(slotCol!, 'AA') }} />}
           {primary && <Token color={primary.color} active={active} count={here.length} onClick={() => active && dispatch({ a: 'move', token: primary.idx })} />}
         </div>,
       );
@@ -325,28 +391,34 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
         <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Room ID: #{state.roomId}</span>
       </div>
 
-      {/* Turn + die + roll */}
+      {/* Turn + die + controls */}
       <div className="flex items-center gap-4 mb-4 flex-wrap justify-center">
         <div
           className="px-5 py-2 border-2 border-[#39414E] font-bold text-sm uppercase shadow-[4px_4px_0px_#454C5A] text-white"
-          style={{ background: turnColor ? COLOR_HEX[turnColor] : '#262B34' }}
+          style={{ background: turnColor ? fillOf(turnColor) : '#262B34' }}
         >
-          {myTurn ? 'Your turn' : `${turnPlayer?.name ?? 'Opponent'}'s turn`}
+          {state.awaitingProceed ? `${myTurn ? 'Your' : `${turnPlayer?.name ?? 'Opponent'}'s`} turn — done` : myTurn ? 'Your turn' : `${turnPlayer?.name ?? 'Opponent'}'s turn`}
         </div>
         <div className="w-12 h-12 bg-[#1A1D24] border-2 border-[#39414E] shadow-[3px_3px_0px_#454C5A] flex items-center justify-center text-2xl font-black font-mono text-[#F5F6F7]">
           {state.die ?? '·'}
         </div>
-        {myTurn && state.mustRoll && (
+        {state.awaitingProceed ? (
+          <button
+            onClick={() => dispatch({ a: 'proceed' })}
+            className="px-6 py-3 bg-[#8338EC] text-white font-bold uppercase tracking-widest text-sm border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all"
+          >
+            ▶ Proceed{state.turnId ? ` → ${state.players[nextTurn(state, state.turnId)]?.name ?? 'next'}` : ''}
+          </button>
+        ) : myTurn && state.mustRoll ? (
           <button
             onClick={() => dispatch({ a: 'roll' })}
             className="px-6 py-3 bg-[#E63946] text-white font-bold uppercase tracking-widest text-sm border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all"
           >
             🎲 Roll
           </button>
-        )}
-        {myTurn && !state.mustRoll && (
+        ) : myTurn && !state.mustRoll ? (
           <span className="text-[11px] font-mono uppercase tracking-wider text-[#9CA3AF] animate-pulse">Tap a glowing token</span>
-        )}
+        ) : null}
       </div>
 
       {/* The board */}
@@ -366,7 +438,7 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
               key={pid}
               className={cn('flex items-center gap-2 px-3 py-1.5 border-2 text-[11px] font-mono uppercase tracking-wider', state.turnId === pid ? 'border-white text-white' : 'border-[#39414E] text-[#9CA3AF]')}
             >
-              <span className="w-3 h-3 rounded-full border border-black/40" style={{ background: COLOR_HEX[col] }} />
+              <span className="w-3 h-3 rounded-full border border-black/40" style={{ background: fillOf(col) }} />
               {pid === myId ? 'You' : state.players[pid]?.name} · {home}/4
             </div>
           );
@@ -374,7 +446,7 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
       </div>
 
       <p className="text-[10px] font-mono uppercase tracking-wider text-[#8A92A0] mt-3 text-center border-l-2 border-[#E63946] pl-3">
-        {state.lastEvent ?? `You are ${myColor}. Roll a 6 to release a token, race home, and land on rivals to send them back. Rolling a 6 rolls again.`}
+        {state.lastEvent ?? `You are ${isRainbow(myColor) ? 'rainbow' : myColor}. Roll a 6 to release a token, capture rivals, and race home. Land on a "?" wildcard for a lucky boost or an unlucky spill!`}
       </p>
     </div>
   );
@@ -383,7 +455,7 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
 export const ludo: GameDefinition<LudoState> = {
   id: 'ludo',
   name: 'Sorry',
-  tagline: 'The classic 2–4 player race. Roll, chase, capture, and get all four home.',
+  tagline: 'A 2–4 player race with wildcard tiles. Roll, chase, capture, get all four home.',
   accent: '#2A9D8F',
   emoji: '🎲',
   minPlayers: 2,
