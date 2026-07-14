@@ -28,6 +28,14 @@ screen:
   wins. Rolling a 6 — or capturing / finishing a token — earns another roll. Solo
   play lets you pick 2–4 players (you plus bots); online, up to four share a room
   code and the host starts once everyone's in.
+- **Uno Frenzy!** — Uno's colour/number matching plus a deck of chaos: **Swap**
+  trades entire hands, **Steal** yanks cards from your rival, and **Frenzy** buries
+  them under six. Classic Skip / Reverse / +2 / Wild / +4 included. Empty your hand
+  first to win. (Opponent hands are masked server-side via `redact`.)
+- **Blackjack 21** — a neon, suit-free race to 21. Hit, Stand, or Double Down;
+  closest without busting takes the round, with naturals and doubles worth extra.
+  First to the point target wins. Your rival's hole cards stay hidden (`redact`)
+  until the reveal.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
