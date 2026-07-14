@@ -1,8 +1,9 @@
 # Paper Games
 
-A small gallery of chill, real-time pencil-and-paper games. Play **2-player** over
-a shared room code, or hit **Play vs Computer** on any game's join screen to take
-on a built-in bot solo (offline). Pick one from the home screen:
+A small gallery of chill, real-time pencil-and-paper games. Play over a shared
+room code (**2 players**, or **2–4** for Ludo), or hit **Play vs Computer** on any
+game's join screen to take on built-in bots solo (offline). Pick one from the home
+screen:
 
 - **Paper Numbers** — one player is the **Finder** (races to spot a target number
   on a 10×10 grid; claimed numbers turn red) while the other is the **Dotter**
@@ -20,10 +21,13 @@ on a built-in bot solo (offline). Pick one from the home screen:
 - **Dots & Boxes** — pick a **quick** (5×5) or **long** (8×8) board, then take
   turns drawing the edges of the grid; close the fourth side of a box to claim it
   and take another turn. Most boxes wins.
-- **Sorry!** — a pared-down take on the board game: draw a card, move a pawn around
-  a shared loop and into your home lane, and land on a rival to bump it back to its
-  pen (a "Sorry!" card yanks a penned pawn straight onto an opponent). First to get
-  all four pawns Home wins.
+- **Ludo** — the classic **2–4 player** race on the cross board. Roll the die,
+  release a token on a 6, chase your tokens clockwise around the shared loop, and
+  land on rivals to send them back to their pen (except on safe squares). Turn up
+  your colour's home column into the centre; first to get all four tokens home
+  wins. Rolling a 6 — or capturing / finishing a token — earns another roll. Solo
+  play lets you pick 2–4 players (you plus bots); online, up to four share a room
+  code and the host starts once everyone's in.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
@@ -39,7 +43,9 @@ backend server to run or pay for. That's what lets it live on GitHub Pages.
 Each game is a self-contained `GameDefinition` in `src/games/` (initial state,
 `start`, a pure `reducer`, and a `Board` component). Add it to the registry in
 `src/games/index.ts` and it shows up in the gallery automatically — the
-peer-to-peer networking in `src/hooks/usePeerSession.ts` is game-agnostic.
+peer-to-peer networking in `src/hooks/usePeerSession.ts` is game-agnostic. Set
+`minPlayers`/`maxPlayers` (both default 2) to seat more than two — the lobby, the
+"Play vs Computer" flow, and the host's start gate all adapt automatically.
 
 To make a game playable solo, add an optional `botMove(state, botId)` to its
 definition that returns the action the bot should take (or `null` when it isn't

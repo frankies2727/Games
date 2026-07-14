@@ -4,20 +4,21 @@ import { Session } from './usePeerSession';
 
 // Offline "vs computer" session. It mirrors the Session shape that GameShell
 // expects from usePeerSession, but instead of networking it runs the whole game
-// locally: the human is seated first (so they take seat 0 / move first) and a
-// bot fills seat 1. After every state change the bot is asked for a move via
-// `def.botMove`; a short delay makes its turns feel deliberate rather than
-// instant. There is no peer, so nothing ever leaves the browser.
+// locally: the human is seated first (so they take seat 0 / move first) and one
+// or more bots fill the remaining seats. After every state change each bot is
+// asked for a move via `def.botMove`; a short delay makes turns feel deliberate.
+// There is no peer, so nothing ever leaves the browser.
 const HUMAN = 'you';
-const BOT = 'cpu';
+const botId = (i: number) => `cpu${i}`;
 const BOT_DELAY_MS = 650;
 
 export function useLocalSession<S extends BaseState>(
   def: GameDefinition<S>,
-  botName = 'Computer',
+  botCount = 1,
 ): Session<S> {
   const [state, setState] = useState<S | null>(null);
   const stateRef = useRef<S | null>(null); // authoritative, unredacted copy
+  const botIds = useRef<string[]>([]);
 
   // The human only ever sees their own redacted view (same as a guest would).
   const commit = useCallback((next: S) => {
@@ -28,15 +29,16 @@ export function useLocalSession<S extends BaseState>(
 
   const join = useCallback((_roomId: string, name: string) => {
     const fresh = def.createInitialState('SOLO');
-    // Insertion order matters: human first => seat 0, bot second => seat 1.
-    commit({
-      ...fresh,
-      players: {
-        [HUMAN]: { id: HUMAN, name: name.trim() || 'You' },
-        [BOT]: { id: BOT, name: botName },
-      },
-    });
-  }, [commit, def, botName]);
+    // Insertion order matters: human first => seat 0, bots after.
+    const players: BaseState['players'] = { [HUMAN]: { id: HUMAN, name: name.trim() || 'You' } };
+    botIds.current = [];
+    for (let i = 0; i < botCount; i++) {
+      const id = botId(i);
+      botIds.current.push(id);
+      players[id] = { id, name: botCount > 1 ? `Bot ${i + 1}` : 'Computer' };
+    }
+    commit({ ...fresh, players });
+  }, [commit, def, botCount]);
 
   const start = useCallback(() => {
     const room = stateRef.current;
@@ -59,21 +61,24 @@ export function useLocalSession<S extends BaseState>(
     commit(def.start({ ...fresh, players: room.players }));
   }, [commit, def]);
 
-  // Drive the bot. Re-runs after every commit, so a bot that earns another turn
-  // (e.g. closing a box) simply keeps moving as the state advances.
+  // Drive the bots. Re-runs after every commit; whichever bot has a move to make
+  // takes it after a short delay, so a bot that earns another turn (extra rolls,
+  // closing a box) simply keeps moving as the state advances.
   useEffect(() => {
     if (!state || state.status !== 'playing' || !def.botMove) return;
     const room = stateRef.current;
     if (!room) return;
-    const view = def.redact ? def.redact(room, BOT) : room;
-    const action = def.botMove(view, BOT);
-    if (!action) return;
-    const timer = setTimeout(() => {
-      const cur = stateRef.current;
-      if (!cur || cur.status !== 'playing') return;
-      commit(def.reducer(cur, BOT, action));
-    }, BOT_DELAY_MS);
-    return () => clearTimeout(timer);
+    for (const bid of botIds.current) {
+      const view = def.redact ? def.redact(room, bid) : room;
+      const action = def.botMove(view, bid);
+      if (!action) continue;
+      const timer = setTimeout(() => {
+        const cur = stateRef.current;
+        if (!cur || cur.status !== 'playing') return;
+        commit(def.reducer(cur, bid, action));
+      }, BOT_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
   }, [state, def, commit]);
 
   return {

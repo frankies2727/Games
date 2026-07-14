@@ -35,9 +35,13 @@ export interface GameDefinition<S extends BaseState = BaseState> {
   tagline: string;
   accent: string; // hex used for the gallery card
   emoji: string;
+  /** Fewest players needed to start (default 2). */
+  minPlayers?: number;
+  /** Most players a room seats (default 2). */
+  maxPlayers?: number;
   /** Fresh waiting-room state (no players seated yet). */
   createInitialState: (roomId: string) => S;
-  /** Transition waiting -> playing once 2 players are seated. */
+  /** Transition waiting -> playing once enough players are seated. */
   start: (state: S) => S;
   /** Apply a player's move; return the next state. */
   reducer: (state: S, playerId: string, action: GameAction) => S;

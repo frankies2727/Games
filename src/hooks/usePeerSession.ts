@@ -54,19 +54,23 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     }
   }, [viewFor]);
 
+  const maxPlayers = def.maxPlayers ?? 2;
+  const minPlayers = def.minPlayers ?? 2;
+
   const hostSeat = useCallback((pid: string, name: string) => {
     const room = stateRef.current;
     if (!room || room.status !== 'waiting') return;
-    if (room.players[pid] || Object.keys(room.players).length >= 2) return;
+    if (room.players[pid] || Object.keys(room.players).length >= maxPlayers) return;
     commit({ ...room, players: { ...room.players, [pid]: { id: pid, name } } });
-  }, [commit]);
+  }, [commit, maxPlayers]);
 
   const hostStart = useCallback(() => {
     const room = stateRef.current;
     if (!room || room.status !== 'waiting') return;
-    if (Object.keys(room.players).length !== 2) return;
+    const n = Object.keys(room.players).length;
+    if (n < minPlayers || n > maxPlayers) return;
     commit(def.start(room));
-  }, [commit, def]);
+  }, [commit, def, minPlayers, maxPlayers]);
 
   const hostAction = useCallback((pid: string, action: GameAction) => {
     const room = stateRef.current;
@@ -80,13 +84,14 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
   const hostRematch = useCallback(() => {
     const room = stateRef.current;
     if (!room) return;
-    if (Object.keys(room.players).length !== 2) {
-      showError('Need both players to rematch.');
+    const n = Object.keys(room.players).length;
+    if (n < minPlayers) {
+      showError('Not enough players to rematch.');
       return;
     }
     const fresh = def.createInitialState(room.roomId);
     commit(def.start({ ...fresh, players: room.players }));
-  }, [commit, def, showError]);
+  }, [commit, def, showError, minPlayers]);
 
   const hostRemove = useCallback((pid: string) => {
     const room = stateRef.current;

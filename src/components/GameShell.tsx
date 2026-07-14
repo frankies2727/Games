@@ -55,7 +55,7 @@ function OnlineGame({ def, onExit, onPlayBot }: { def: GameDefinition<any>; onEx
       ) : !state ? (
         <JoinGame gameName={def.name} tagline={def.tagline} onJoin={join} onPlayBot={def.botMove ? onPlayBot : undefined} />
       ) : state.status === 'waiting' ? (
-        <Lobby gameName={def.name} state={state} myId={myId} onStart={start} />
+        <Lobby gameName={def.name} state={state} myId={myId} onStart={start} minPlayers={def.minPlayers} maxPlayers={def.maxPlayers} />
       ) : (
         // Keep the final board rendered underneath so players can see exactly
         // how the game ended; the overlay sits on top and can be dismissed.
@@ -70,14 +70,52 @@ function OnlineGame({ def, onExit, onPlayBot }: { def: GameDefinition<any>; onEx
   );
 }
 
-// Offline flow: auto-seat the human + a bot and start immediately.
+// Lets a solo player pick how many total players (incl. bots) for games that
+// seat more than two.
+function PlayerCountPicker({ min, max, accent, onPick }: { min: number; max: number; accent: string; onPick: (n: number) => void }) {
+  const counts = [];
+  for (let n = min; n <= max; n++) counts.push(n);
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">
+      <div className="max-w-md w-full bg-[#1A1D24] shadow-[8px_8px_0px_#454C5A] border-2 border-[#39414E] p-8 space-y-6">
+        <h2 className="text-2xl font-bold text-center text-[#F5F6F7] tracking-tighter uppercase italic border-b-2 border-[#39414E] pb-4">How many players?</h2>
+        <div className="grid grid-cols-1 gap-3">
+          {counts.map((n) => (
+            <button
+              key={n}
+              onClick={() => onPick(n)}
+              className="w-full py-4 text-left px-6 bg-[#262B34] hover:bg-[#323A47] active:translate-y-1 transition-all text-white font-bold border-2 border-[#39414E] uppercase tracking-[0.2em]"
+              style={{ boxShadow: `4px 4px 0px ${accent}` }}
+            >
+              {n} players <span className="text-[#8A92A0] text-xs normal-case tracking-normal font-mono">· you + {n - 1} bot{n - 1 > 1 ? 's' : ''}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Offline flow: auto-seat the human + bots and start immediately.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BotGame({ def, onExit }: { def: GameDefinition<any>; onExit: () => void }) {
-  const { state, myId, error, join, start, move, rematch } = useLocalSession(def);
+  const min = def.minPlayers ?? 2;
+  const max = def.maxPlayers ?? 2;
+  // Games that seat more than two ask how many; otherwise default to 2.
+  const [count, setCount] = useState<number | null>(max > 2 ? null : 2);
+  const { state, myId, error, join, start, move, rematch } = useLocalSession(def, (count ?? 2) - 1);
   const Board = def.Board;
 
-  useEffect(() => { join('SOLO', 'You'); }, [join]);
-  useEffect(() => { if (state?.status === 'waiting') start(); }, [state?.status, start]);
+  useEffect(() => { if (count != null) join('SOLO', 'You'); }, [join, count]);
+  useEffect(() => { if (count != null && state?.status === 'waiting') start(); }, [count, state?.status, start]);
+
+  if (count == null) {
+    return (
+      <Chrome onExit={onExit} error={error}>
+        <PlayerCountPicker min={min} max={max} accent={def.accent} onPick={setCount} />
+      </Chrome>
+    );
+  }
 
   return (
     <Chrome onExit={onExit} error={error}>
