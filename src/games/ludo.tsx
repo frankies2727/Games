@@ -44,14 +44,13 @@ const HOME_CELLS: Record<Color, [number, number][]> = {
   blue: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
 };
 
-// Four token slots inside each 6×6 base pen.
+// A compact 2×2 pen (one square per piece) tucked into each corner.
 const BASE_SLOTS: Record<Color, [number, number][]> = {
-  red: [[1, 1], [1, 4], [4, 1], [4, 4]],
-  green: [[1, 10], [1, 13], [4, 10], [4, 13]],
-  yellow: [[10, 10], [10, 13], [13, 10], [13, 13]],
-  blue: [[10, 1], [10, 4], [13, 1], [13, 4]],
+  red: [[2, 2], [2, 3], [3, 2], [3, 3]],
+  green: [[2, 11], [2, 12], [3, 11], [3, 12]],
+  yellow: [[11, 11], [11, 12], [12, 11], [12, 12]],
+  blue: [[11, 2], [11, 3], [12, 2], [12, 3]],
 };
-const BASE_ORIGIN: Record<Color, [number, number]> = { red: [0, 0], green: [0, 9], yellow: [9, 9], blue: [9, 0] };
 
 const SAFE = new Set([0, 13, 26, 39, 8, 21, 34, 47]); // start squares + stars
 const FINISH = 56;
@@ -212,8 +211,6 @@ function botMove(state: LudoState, botId: string): GameAction | null {
 
 // ---- Rendering ----
 const key = (r: number, c: number) => r * 15 + c;
-const inRegion = (r: number, c: number, origin: [number, number]) =>
-  r >= origin[0] && r < origin[0] + 6 && c >= origin[1] && c < origin[1] + 6;
 
 // Precompute per-cell static roles.
 const PATH_AT = new Map<number, number>(); // cell -> loop index
@@ -225,11 +222,11 @@ const START_CELL = new Map<number, Color>();
   const [r, c] = PATH[START_INDEX[col]];
   START_CELL.set(key(r, c), col);
 });
+const SLOT_AT = new Map<number, Color>(); // pen square -> colour
+(Object.keys(BASE_SLOTS) as Color[]).forEach((col) => BASE_SLOTS[col].forEach(([r, c]) => SLOT_AT.set(key(r, c), col)));
 
-function baseAt(r: number, c: number): Color | null {
-  for (const col of Object.keys(BASE_ORIGIN) as Color[]) if (inRegion(r, c, BASE_ORIGIN[col])) return col;
-  return null;
-}
+// Translucent tint of a colour, so cells read as muted on the dark board.
+const tint = (hex: string, alpha: string) => hex + alpha;
 
 function Token({ color, active, count, onClick }: { color: Color; active?: boolean; count?: number; onClick?: () => void }) {
   return (
@@ -270,27 +267,29 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
   for (let r = 0; r < 15; r++) {
     for (let c = 0; c < 15; c++) {
       const k = key(r, c);
-      const base = baseAt(r, c);
       const pathIdx = PATH_AT.get(k);
       const homeCol = HOME_AT.get(k);
       const startCol = START_CELL.get(k);
+      const slotCol = SLOT_AT.get(k);
       const isCenter = r >= 6 && r <= 8 && c >= 6 && c <= 8;
+      const safe = pathIdx != null && SAFE.has(pathIdx);
       const here = tokensAt.get(k) ?? [];
 
-      // Background by role.
-      let bg = '#0F1117';
-      let border = '#23272F';
-      if (base) { bg = COLOR_HEX[base]; border = '#00000030'; }
-      else if (homeCol) { bg = COLOR_HEX[homeCol]; border = '#00000030'; }
-      else if (startCol) { bg = COLOR_HEX[startCol]; border = '#00000040'; }
-      else if (pathIdx != null) { bg = SAFE.has(pathIdx) ? '#2E343F' : '#F5F6F7'; border = '#9CA3AF'; }
-      else if (isCenter) { bg = '#262B34'; border = '#39414E'; }
+      // Dark-mode palette: the board is dark, colours appear as muted tints on
+      // the track's start squares, each colour's home lane, and its little pen.
+      let bg = '#0F1117'; // empty corner space / void
+      let border = 'transparent';
+      if (startCol) { bg = tint(COLOR_HEX[startCol], '77'); border = COLOR_HEX[startCol]; }
+      else if (pathIdx != null) { bg = safe ? '#2A313B' : '#1B1F27'; border = '#2E343F'; }
+      else if (homeCol) { bg = tint(COLOR_HEX[homeCol], '3A'); border = tint(COLOR_HEX[homeCol], '77'); }
+      else if (isCenter) { bg = '#181B22'; border = '#2E343F'; }
 
-      // Inner white pen square (mimic the classic base look) — only for the
-      // colours that are actually in this game.
-      const baseActive = base != null && activeColors.has(base);
-      const inInnerPen = base && r >= BASE_ORIGIN[base][0] + 1 && r <= BASE_ORIGIN[base][0] + 4 && c >= BASE_ORIGIN[base][1] + 1 && c <= BASE_ORIGIN[base][1] + 4;
-      const isSlot = base && BASE_SLOTS[base].some(([br, bc]) => br === r && bc === c);
+      const slotActive = slotCol != null && activeColors.has(slotCol);
+      if (slotActive) { bg = tint(COLOR_HEX[slotCol!], '4D'); border = COLOR_HEX[slotCol!]; }
+
+      // Dim a colour's lane/start when that colour isn't in this game.
+      const laneCol = startCol ?? homeCol;
+      const dim = laneCol != null && !activeColors.has(laneCol);
 
       const primary = here[0];
       const active = primary != null && primary.pid === myId && movable.includes(primary.idx);
@@ -302,12 +301,13 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
           style={{
             gridColumn: c + 1,
             gridRow: r + 1,
-            background: baseActive && inInnerPen ? '#F5F6F7' : bg,
-            opacity: base && !baseActive ? 0.35 : 1,
-            outline: `0.5px solid ${border}`,
+            background: bg,
+            opacity: dim ? 0.3 : 1,
+            outline: border === 'transparent' ? undefined : `1px solid ${border}`,
           }}
         >
-          {baseActive && isSlot && !primary && <span className="w-[70%] h-[70%] rounded-full border-2" style={{ borderColor: COLOR_HEX[base!] }} />}
+          {safe && !startCol && !primary && <span className="text-[8px] text-[#5B6470] leading-none">✦</span>}
+          {slotActive && !primary && <span className="w-[62%] h-[62%] rounded-full border-2" style={{ borderColor: tint(COLOR_HEX[slotCol!], 'AA') }} />}
           {primary && <Token color={primary.color} active={active} count={here.length} onClick={() => active && dispatch({ a: 'move', token: primary.idx })} />}
         </div>,
       );
@@ -321,7 +321,7 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
   return (
     <div className="flex flex-col items-center p-4 sm:p-6 max-w-2xl mx-auto w-full">
       <div className="w-full flex flex-col items-center mb-4 border-b-2 border-[#39414E] pb-4">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Ludo</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter uppercase italic text-[#F5F6F7]">Sorry</h1>
         <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Room ID: #{state.roomId}</span>
       </div>
 
@@ -382,7 +382,7 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
 
 export const ludo: GameDefinition<LudoState> = {
   id: 'ludo',
-  name: 'Ludo',
+  name: 'Sorry',
   tagline: 'The classic 2–4 player race. Roll, chase, capture, and get all four home.',
   accent: '#2A9D8F',
   emoji: '🎲',
