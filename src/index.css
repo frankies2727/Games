@@ -21,3 +21,13 @@ body {
   color: var(--color-brand-text);
   overflow-x: hidden;
 }
+
+/* Flashing highlight for the most recent Dots & Boxes edge, so a player who
+   looked away can instantly spot where the opponent just drew. */
+@keyframes flash-line {
+  0%, 100% { filter: brightness(1); box-shadow: 0 0 0 0 rgba(245, 246, 247, 0); }
+  50% { filter: brightness(1.7); box-shadow: 0 0 9px 2px rgba(245, 246, 247, 0.95); }
+}
+.animate-flash-line {
+  animation: flash-line 0.8s ease-in-out infinite;
+}

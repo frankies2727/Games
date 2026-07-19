@@ -258,6 +258,7 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
         const i = hIdx(dots, R / 2, (C - 1) / 2);
         const owner = state.hEdges[i];
         const drawn = owner != null;
+        const isLast = drawn && state.lastEdge?.edge === 'h' && state.lastEdge.i === i;
         cells.push(
           <button
             key={`${R}-${C}`}
@@ -269,6 +270,7 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
               className={cn(
                 'h-1.5 w-full rounded-full transition-colors',
                 drawn ? '' : 'bg-[#2E343F] group-hover:bg-[#C9CED6]/40',
+                isLast && 'animate-flash-line',
               )}
               style={drawn ? { background: colorOf(owner) } : undefined}
             />
@@ -279,6 +281,7 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
         const i = vIdx(dots, (R - 1) / 2, C / 2);
         const owner = state.vEdges[i];
         const drawn = owner != null;
+        const isLast = drawn && state.lastEdge?.edge === 'v' && state.lastEdge.i === i;
         cells.push(
           <button
             key={`${R}-${C}`}
@@ -290,6 +293,7 @@ function Board({ state, myId, dispatch }: BoardProps<DotsAndBoxesState>) {
               className={cn(
                 'w-1.5 h-full rounded-full transition-colors',
                 drawn ? '' : 'bg-[#2E343F] group-hover:bg-[#C9CED6]/40',
+                isLast && 'animate-flash-line',
               )}
               style={drawn ? { background: colorOf(owner) } : undefined}
             />
