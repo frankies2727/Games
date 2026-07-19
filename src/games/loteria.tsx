@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { BaseState, BoardProps, GameAction, GameDefinition } from '../types';
 import { cn } from '../lib/utils';
 
@@ -11,14 +10,15 @@ import { cn } from '../lib/utils';
 // de Antropología, La Ciudadela's artesanías, and La Casa de Tacuba (Calle
 // Tacuba 28, Centro).
 //
-// Each player gets a 4×4 tabla drawn from the deck. One carta is sung at a time;
-// the slot flashes on your tabla if you hold it, you drop a frijol (bean) on it,
-// then everyone taps LISTO — the next carta is only sung once BOTH players are
-// ready. Fill the WHOLE tabla, then shout "¡LOTERÍA!".
+// 2–5 players. Each player gets a 4×4 tabla drawn from the deck. One carta is
+// sung at a time; the slot flashes on your tabla if you hold it, you drop a
+// frijol (bean) on it, then EVERYONE taps LISTO — the next carta is only sung
+// once every player is ready. Fill the WHOLE tabla, then shout "¡LOTERÍA!".
 //
-// FRENZY MODE adds power-ups: reach 4 beans to earn a COMODÍN (drop one free
-// wild bean anywhere) and complete a full row to earn a TÓMBOLA (auto-fill two
-// of your neediest slots). The deck's un-sung tail is redacted so nobody peeks.
+// FRENZY MODE sprinkles in a mystery power-up: at random moments a "🎁 ¿Lo usas?"
+// offer pops up for one random player. You don't know what it is — use it and
+// it's either "¡1 Free Bean!!" (for you) or "a random player just got a free
+// bean… awww". The deck's un-sung tail is redacted so nobody peeks ahead.
 // ---------------------------------------------------------------------------
 
 interface Carta {
@@ -65,17 +65,10 @@ const DECK: Carta[] = [
 
 const CARTA = Object.fromEntries(DECK.map((c) => [c.id, c])) as Record<string, Carta>;
 
-const TABLA_SIZE = 16; // 4×4
-const FOUR_BEANS = 4;  // Frenzy: beans that earn a Comodín
-const TOMBOLA_FILL = 2; // Frenzy: slots a Tómbola fills
+const TABLA_SIZE = 16;        // 4×4
+const MYSTERY_CHANCE = 0.28;  // Frenzy: odds a mystery power-up appears each round
 
-// Rows of the 4×4 tabla (used for the Frenzy full-row power-up).
-const ROWS = [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]];
-const hasFullRow = (marks: boolean[]) => ROWS.some((r) => r.every((i) => marks[i]));
-const completedRowCells = (marks: boolean[]) => new Set(ROWS.filter((r) => r.every((i) => marks[i])).flat());
-
-interface Powerups { comodin: number; tombola: number }
-interface Earned { four: boolean; row: boolean }
+const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
 function shuffled<T>(arr: T[]): T[] {
   const a = arr.slice();
@@ -86,17 +79,28 @@ function shuffled<T>(arr: T[]): T[] {
   return a;
 }
 
+// Best empty slot to hand a free bean: an un-sung carta first (that's the real
+// shortcut), else any empty slot; -1 if the tabla is already full.
+function freeBeanSlot(tabla: string[], marks: boolean[], called: Set<string>): number {
+  const unmarked = marks.map((m, i) => (m ? -1 : i)).filter((i) => i >= 0);
+  if (unmarked.length === 0) return -1;
+  return unmarked.find((i) => !called.has(tabla[i])) ?? unmarked[0];
+}
+
+// A resolved mystery: who got the bean and whether it was the good roll.
+interface MysteryEvent { kind: 'good' | 'bad'; beneficiaryId: string; forId: string }
+
 export interface LoteriaState extends BaseState {
-  phase: 'choosing' | 'playing';        // pick Clásico / Frenzy, then play
+  phase: 'choosing' | 'playing';         // pick Clásico / Frenzy, then play
   frenzy: boolean;
-  deck: string[];                       // full call order (tail redacted from players)
-  drawn: number;                        // how many cartas have been sung
-  total: number;                        // deck.length (survives redaction)
-  tablas: Record<string, string[]>;     // 16 carta ids per player
-  marks: Record<string, boolean[]>;     // 16 beans per player
-  ready: Record<string, boolean>;       // per-round: who's ready for the next carta
-  powerups: Record<string, Powerups>;   // Frenzy tokens in hand
-  earned: Record<string, Earned>;       // which milestones already fired
+  deck: string[];                        // full call order (tail redacted from players)
+  drawn: number;                         // how many cartas have been sung
+  total: number;                         // deck.length (survives redaction)
+  tablas: Record<string, string[]>;      // 16 carta ids per player
+  marks: Record<string, boolean[]>;      // 16 beans per player
+  ready: Record<string, boolean>;        // per-round: who's ready for the next carta
+  mystery: { forId: string } | null;     // Frenzy: pending offer (use-it-or-lose-it)
+  lastEvent: MysteryEvent | null;        // Frenzy: last resolved mystery (shown to all)
   lastClaim: { pid: string; ok: boolean } | null;
 }
 
@@ -114,14 +118,14 @@ function createInitialState(roomId: string): LoteriaState {
     tablas: {},
     marks: {},
     ready: {},
-    powerups: {},
-    earned: {},
+    mystery: null,
+    lastEvent: null,
     lastClaim: null,
   };
 }
 
-// Waiting -> playing drops into the mode chooser; the tablas are dealt once a
-// mode is picked (so a rematch re-picks the mode too).
+// Waiting -> playing drops into the mode chooser; tablas are dealt once a mode
+// is picked (so a rematch re-picks the mode too).
 function start(state: LoteriaState): LoteriaState {
   return {
     ...state,
@@ -134,29 +138,9 @@ function start(state: LoteriaState): LoteriaState {
     tablas: {},
     marks: {},
     ready: {},
-    powerups: {},
-    earned: {},
+    mystery: null,
+    lastEvent: null,
     lastClaim: null,
-  };
-}
-
-// Frenzy: award tokens when a player first crosses a milestone. Fires each
-// milestone once (tracked in `earned`); returns the same state if nothing new.
-function grantPowerups(state: LoteriaState, pid: string): LoteriaState {
-  if (!state.frenzy) return state;
-  const marks = state.marks[pid];
-  if (!marks) return state;
-  const beans = marks.filter(Boolean).length;
-  const earned: Earned = { ...state.earned[pid] };
-  const pu: Powerups = { ...state.powerups[pid] };
-  let changed = false;
-  if (beans >= FOUR_BEANS && !earned.four) { earned.four = true; pu.comodin += 1; changed = true; }
-  if (hasFullRow(marks) && !earned.row) { earned.row = true; pu.tombola += 1; changed = true; }
-  if (!changed) return state;
-  return {
-    ...state,
-    earned: { ...state.earned, [pid]: earned },
-    powerups: { ...state.powerups, [pid]: pu },
   };
 }
 
@@ -172,19 +156,15 @@ function reducer(state: LoteriaState, pid: string, action: GameAction): LoteriaS
     const tablas: Record<string, string[]> = {};
     const marks: Record<string, boolean[]> = {};
     const ready: Record<string, boolean> = {};
-    const powerups: Record<string, Powerups> = {};
-    const earned: Record<string, Earned> = {};
     for (const id of ids) {
       tablas[id] = shuffled(DECK.map((c) => c.id)).slice(0, TABLA_SIZE);
       marks[id] = Array(TABLA_SIZE).fill(false);
       ready[id] = false;
-      powerups[id] = { comodin: 0, tombola: 0 };
-      earned[id] = { four: false, row: false };
     }
     // Sing the first carta right away so the tabla has something to flash.
     return {
       ...state, phase: 'playing', frenzy, deck, total: deck.length, drawn: 1,
-      tablas, marks, ready, powerups, earned, lastClaim: null,
+      tablas, marks, ready, mystery: null, lastEvent: null, lastClaim: null,
     };
   }
 
@@ -200,46 +180,28 @@ function reducer(state: LoteriaState, pid: string, action: GameAction): LoteriaS
     if (!marks[index] && !called.has(tabla[index])) return state; // can't place on an un-sung carta
     const next = marks.slice();
     next[index] = !next[index];
-    return grantPowerups({ ...state, marks: { ...state.marks, [pid]: next }, lastClaim: null }, pid);
+    return { ...state, marks: { ...state.marks, [pid]: next }, lastClaim: null };
   }
 
-  // ---- Frenzy: Comodín — drop one free wild bean on any empty slot. ----
-  if (action.type === 'wild') {
-    if (!state.frenzy) return state;
-    const pu = state.powerups[pid];
-    const marks = state.marks[pid];
-    if (!pu || pu.comodin <= 0 || !marks) return state;
-    const index = action.index as number;
-    if (index < 0 || index >= TABLA_SIZE || marks[index]) return state;
-    const next = marks.slice();
-    next[index] = true;
-    return grantPowerups({
-      ...state,
-      marks: { ...state.marks, [pid]: next },
-      powerups: { ...state.powerups, [pid]: { ...pu, comodin: pu.comodin - 1 } },
-      lastClaim: null,
-    }, pid);
-  }
-
-  // ---- Frenzy: Tómbola — auto-fill two of the neediest slots (un-sung first). ----
-  if (action.type === 'tombola') {
-    if (!state.frenzy) return state;
-    const pu = state.powerups[pid];
-    const tabla = state.tablas[pid];
-    const marks = state.marks[pid];
-    if (!pu || pu.tombola <= 0 || !tabla || !marks) return state;
-    const unmarked = marks.map((m, i) => (m ? -1 : i)).filter((i) => i >= 0);
-    if (unmarked.length === 0) return state;
-    // Prefer slots whose carta hasn't been sung yet — that's the real shortcut.
-    unmarked.sort((a, b) => (called.has(tabla[a]) ? 1 : 0) - (called.has(tabla[b]) ? 1 : 0));
-    const next = marks.slice();
-    for (const i of unmarked.slice(0, TOMBOLA_FILL)) next[i] = true;
-    return grantPowerups({
-      ...state,
-      marks: { ...state.marks, [pid]: next },
-      powerups: { ...state.powerups, [pid]: { ...pu, tombola: pu.tombola - 1 } },
-      lastClaim: null,
-    }, pid);
+  // ---- Frenzy: resolve a mystery offer. Only the offered player decides. ----
+  if (action.type === 'mystery') {
+    if (!state.frenzy || !state.mystery || state.mystery.forId !== pid) return state;
+    if (!action.use) return { ...state, mystery: null }; // shrugged it off
+    // Good roll -> the bean is yours. Bad roll -> a random player gets it (maybe you!).
+    const good = Math.random() < 0.5;
+    const beneficiaryId = good ? pid : pick(ids);
+    const tabla = state.tablas[beneficiaryId];
+    const marks = state.marks[beneficiaryId];
+    let marksOut = state.marks;
+    if (tabla && marks) {
+      const slot = freeBeanSlot(tabla, marks, called);
+      if (slot >= 0) {
+        const next = marks.slice();
+        next[slot] = true;
+        marksOut = { ...state.marks, [beneficiaryId]: next };
+      }
+    }
+    return { ...state, marks: marksOut, mystery: null, lastEvent: { kind: good ? 'good' : 'bad', beneficiaryId, forId: pid } };
   }
 
   // ---- Ready up. When everyone's ready, the next carta is sung automatically. ----
@@ -250,7 +212,9 @@ function reducer(state: LoteriaState, pid: string, action: GameAction): LoteriaS
     if (allReady && state.drawn < state.total) {
       const cleared: Record<string, boolean> = {};
       for (const id of ids) cleared[id] = false;
-      return { ...state, drawn: state.drawn + 1, ready: cleared, lastClaim: null };
+      // Old offer expires; maybe a fresh mystery appears for a random player.
+      const mystery = state.frenzy && Math.random() < MYSTERY_CHANCE ? { forId: pick(ids) } : null;
+      return { ...state, drawn: state.drawn + 1, ready: cleared, mystery, lastClaim: null };
     }
     return { ...state, ready };
   }
@@ -268,8 +232,8 @@ function reducer(state: LoteriaState, pid: string, action: GameAction): LoteriaS
   return state;
 }
 
-// Bot cantor + player: pick a mode if it's ever seated first, mark cartas it
-// holds, spend Frenzy power-ups, claim the moment its tabla is full, and ready
+// Bot cantor + player: pick a mode if seated first, always cash a mystery offer
+// (it's a free-ish bean), mark cartas it holds, claim on a full tabla, and ready
 // up each round so the game keeps moving.
 function botMove(state: LoteriaState, botId: string): GameAction | null {
   if (state.status !== 'playing') return null;
@@ -284,26 +248,12 @@ function botMove(state: LoteriaState, botId: string): GameAction | null {
   if (!tabla || !marks) return null;
   const called = new Set(state.deck.slice(0, state.drawn));
 
-  // 1) Mark any sung carta it still holds unbeaned.
+  if (state.frenzy && state.mystery && state.mystery.forId === botId) return { type: 'mystery', use: true };
+
   for (let i = 0; i < TABLA_SIZE; i++) {
     if (!marks[i] && called.has(tabla[i])) return { type: 'mark', index: i };
   }
-
-  // 2) Spend Frenzy power-ups on the slots it can't yet reach.
-  if (state.frenzy) {
-    const pu = state.powerups[botId] ?? { comodin: 0, tombola: 0 };
-    const unmarked = marks.map((m, i) => (m ? -1 : i)).filter((i) => i >= 0);
-    if (pu.comodin > 0 && unmarked.length > 0) {
-      const target = unmarked.find((i) => !called.has(tabla[i])) ?? unmarked[0];
-      return { type: 'wild', index: target };
-    }
-    if (pu.tombola > 0 && unmarked.length > 0) return { type: 'tombola' };
-  }
-
-  // 3) Full tabla -> shout it.
   if (marks.every(Boolean)) return { type: 'loteria' };
-
-  // 4) Otherwise ready up for the next carta.
   if (!state.ready[botId]) return { type: 'ready' };
   return null;
 }
@@ -346,7 +296,7 @@ function ModeChooser({ myTurn, chooserName, dispatch }: { myTurn: boolean; choos
           >
             <div className="text-xl font-bold uppercase tracking-wider text-[#F5F6F7]">⚡ Frenzy</div>
             <div className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF] mt-2">
-              Classic + power-ups: 🃏 Comodín at 4 beans · 🎰 Tómbola on a full row
+              Classic + surprise 🎁 mystery power-ups: maybe a free bean… maybe not
             </div>
           </button>
         </div>
@@ -391,14 +341,12 @@ interface TablaCellProps {
   carta: Carta;
   called: boolean;
   marked: boolean;
-  flash: boolean;       // current sung carta sitting on this slot, still unbeaned
-  wildTarget: boolean;  // Comodín is armed and this empty slot can take it
-  rowGlow: boolean;     // part of a completed row (Frenzy feedback)
-  canPlay: boolean;
+  flash: boolean;   // current sung carta sitting on this slot, still unbeaned
   onClick: () => void;
 }
 
-function TablaCell({ carta, called, marked, flash, wildTarget, rowGlow, canPlay, onClick }: TablaCellProps) {
+function TablaCell({ carta, called, marked, flash, onClick }: TablaCellProps) {
+  const canPlay = marked || called;
   return (
     <button
       disabled={!canPlay}
@@ -409,9 +357,7 @@ function TablaCell({ carta, called, marked, flash, wildTarget, rowGlow, canPlay,
         !called && !marked && 'opacity-40 grayscale',
         called && !marked && 'hover:bg-[#1E222B] active:translate-y-0.5',
         marked && 'border-[#F72585] bg-[#F72585]/10',
-        rowGlow && 'border-[#06D6A0]',
         flash && 'ring-4 ring-[#FFD60A] ring-offset-1 ring-offset-[#0F1117] animate-pulse z-10',
-        wildTarget && 'ring-2 ring-[#06D6A0] ring-offset-1 ring-offset-[#0F1117] opacity-100 grayscale-0',
       )}
       title={carta.name}
     >
@@ -428,27 +374,7 @@ function TablaCell({ carta, called, marked, flash, wildTarget, rowGlow, canPlay,
   );
 }
 
-function Powerup({ label, emoji, count, active, onClick }: { label: string; emoji: string; count: number; active: boolean; onClick: () => void }) {
-  const usable = count > 0;
-  return (
-    <button
-      disabled={!usable}
-      onClick={onClick}
-      className={cn(
-        'flex-1 border-2 px-3 py-2 flex flex-col items-center gap-0.5 transition-all',
-        usable ? 'border-[#06D6A0] bg-[#06D6A0]/10 text-white active:translate-y-0.5' : 'border-[#39414E] bg-[#12151C] text-[#5B6472] cursor-not-allowed',
-        active && 'ring-2 ring-[#06D6A0] ring-offset-1 ring-offset-[#0F1117]',
-      )}
-    >
-      <span className="text-xl leading-none">{emoji}</span>
-      <span className="text-[9px] font-mono font-bold uppercase tracking-widest">{label} ×{count}</span>
-      {active && <span className="text-[8px] font-mono uppercase tracking-widest text-[#06D6A0]">tap a slot</span>}
-    </button>
-  );
-}
-
 function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
-  const [armedWild, setArmedWild] = useState(false);
   const ids = Object.keys(state.players);
 
   if (state.phase === 'choosing') {
@@ -456,7 +382,6 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
     return <ModeChooser myTurn={myId === ids[0]} chooserName={chooser?.name ?? 'opponent'} dispatch={dispatch} />;
   }
 
-  const opponent = Object.values(state.players).find((p) => p.id !== myId);
   const tabla: string[] = state.tablas[myId] ?? [];
   const marks: boolean[] = state.marks[myId] ?? Array<boolean>(TABLA_SIZE).fill(false);
   const called = new Set(state.deck.slice(0, state.drawn));
@@ -466,25 +391,17 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
 
   const beans = marks.filter(Boolean).length;
   const full = beans === TABLA_SIZE;
-  const oppMarks = opponent ? state.marks[opponent.id] ?? [] : [];
-  const oppBeans = oppMarks.filter(Boolean).length;
-
-  const pu: Powerups = state.powerups[myId] ?? { comodin: 0, tombola: 0 };
   const iReady = !!state.ready[myId];
-  const oppReady = opponent ? !!state.ready[opponent.id] : false;
+  const readyCount = ids.filter((id) => state.ready[id]).length;
   const deckDone = state.drawn >= state.total;
-  const rowGlow = state.frenzy ? completedRowCells(marks) : new Set<number>();
+
+  const nameOf = (id: string) => (id === myId ? 'You' : state.players[id]?.name ?? '—');
+
+  const myMystery = state.frenzy && state.mystery?.forId === myId;
+  const ev = state.frenzy ? state.lastEvent : null;
 
   const claim = state.lastClaim;
   const badClaimByMe = claim && !claim.ok && claim.pid === myId;
-
-  const onCell = (i: number) => {
-    if (armedWild) {
-      if (!marks[i]) { dispatch({ type: 'wild', index: i }); setArmedWild(false); }
-      return;
-    }
-    dispatch({ type: 'mark', index: i });
-  };
 
   return (
     <div className="flex flex-col items-center p-4 sm:p-8 max-w-2xl mx-auto w-full">
@@ -495,23 +412,62 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
         <span className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Room ID: #{state.roomId}</span>
       </div>
 
-      {/* Bean-count scoreboard */}
-      <div className="flex items-stretch gap-3 w-full max-w-md mb-4">
-        <div className="flex-1 border-2 border-[#39414E] p-2 text-center bg-[#F72585]/10">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[#9CA3AF] truncate">You 🫘</div>
-          <div className="text-2xl font-black font-mono text-[#F5F6F7]">{beans}<span className="text-sm text-[#8A92A0]">/{TABLA_SIZE}</span></div>
-        </div>
-        {opponent && (
-          <div className="flex-1 border-2 border-[#39414E] p-2 text-center bg-[#1A1D24]">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-[#9CA3AF] truncate">{opponent.name} 🫘</div>
-            <div className="text-2xl font-black font-mono text-[#F5F6F7]">{oppBeans}<span className="text-sm text-[#8A92A0]">/{TABLA_SIZE}</span></div>
-          </div>
-        )}
+      {/* Bean-count scoreboard — all players (2–5). */}
+      <div className="flex flex-wrap justify-center gap-2 w-full max-w-md mb-4">
+        {ids.map((id) => {
+          const b = (state.marks[id] ?? []).filter(Boolean).length;
+          const me = id === myId;
+          return (
+            <div
+              key={id}
+              className={cn(
+                'min-w-[64px] flex-1 border-2 border-[#39414E] p-2 text-center',
+                me ? 'bg-[#F72585]/10' : 'bg-[#1A1D24]',
+              )}
+            >
+              <div className="text-[10px] font-mono uppercase tracking-widest text-[#9CA3AF] truncate">{nameOf(id)} 🫘</div>
+              <div className="text-xl font-black font-mono text-[#F5F6F7]">{b}<span className="text-xs text-[#8A92A0]">/{TABLA_SIZE}</span></div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mb-4">
         <CalledCard carta={currentCarta} count={state.drawn} total={state.total} />
       </div>
+
+      {/* Frenzy: mystery offer + last outcome banner. */}
+      {state.frenzy && myMystery && (
+        <div className="w-full max-w-md mb-4 border-2 border-[#FFD60A] bg-[#FFD60A]/10 p-3 flex flex-col items-center gap-2">
+          <div className="text-sm font-black uppercase tracking-widest text-[#F5F6F7]">🎁 ¡Power-up misterioso!</div>
+          <div className="text-[10px] font-mono uppercase tracking-widest text-[#9CA3AF]">¿Lo usas? Podría ser bueno… o no 😅</div>
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={() => dispatch({ type: 'mystery', use: true })}
+              className="flex-1 py-2 font-black uppercase tracking-widest text-[#0F1117] border-2 border-[#FFD60A]"
+              style={{ background: GOLD }}
+            >
+              Usar 🎲
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'mystery', use: false })}
+              className="flex-1 py-2 font-bold uppercase tracking-widest text-white bg-[#262B34] border-2 border-[#39414E] active:translate-y-0.5"
+            >
+              Paso
+            </button>
+          </div>
+        </div>
+      )}
+      {state.frenzy && ev && !myMystery && (
+        <div className={cn(
+          'w-full max-w-md mb-4 border-2 px-4 py-2 text-center text-xs font-mono font-bold uppercase tracking-widest',
+          ev.kind === 'good' ? 'border-[#06D6A0] bg-[#06D6A0]/10 text-[#9BE7D3]' : 'border-[#39414E] bg-[#1A1D24] text-[#9CA3AF]',
+        )}>
+          {ev.kind === 'good'
+            ? `🎉 ${nameOf(ev.forId)}: ¡1 Free Bean!!`
+            : `🎲 ${nameOf(ev.beneficiaryId)} got a free bean — awww`}
+        </div>
+      )}
 
       {/* Round gate: flash your slot, bean it, then tap Listo. */}
       <div className="w-full max-w-md flex flex-col items-center gap-2 mb-5">
@@ -538,11 +494,9 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
                 ¡La tienes! Toca la carta que parpadea 🫘
               </p>
             )}
-            {opponent && (
-              <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B7280]">
-                {opponent.name}: {oppReady ? 'listo ✓' : 'pensando…'}
-              </p>
-            )}
+            <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B7280]">
+              Listos: {readyCount}/{ids.length}
+            </p>
           </>
         )}
       </div>
@@ -560,28 +514,11 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
               called={isCalled}
               marked={marked}
               flash={i === currentIdx && !marked}
-              wildTarget={armedWild && !marked}
-              rowGlow={rowGlow.has(i)}
-              canPlay={armedWild ? !marked : marked || isCalled}
-              onClick={() => onCell(i)}
+              onClick={() => dispatch({ type: 'mark', index: i })}
             />
           );
         })}
       </div>
-
-      {/* Frenzy power-ups */}
-      {state.frenzy && (
-        <div className="w-full max-w-md flex gap-3 mt-4">
-          <Powerup
-            label="Comodín" emoji="🃏" count={pu.comodin} active={armedWild}
-            onClick={() => setArmedWild((a) => !a)}
-          />
-          <Powerup
-            label="Tómbola" emoji="🎰" count={pu.tombola} active={false}
-            onClick={() => { dispatch({ type: 'tombola' }); setArmedWild(false); }}
-          />
-        </div>
-      )}
 
       {/* Lotería claim — only once the tabla is completely full. */}
       {full && (
@@ -605,7 +542,7 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
           </span>
         ) : (
           <span className="text-[10px] font-mono uppercase tracking-widest text-[#6B7280]">
-            {state.frenzy ? 'Llena toda la tabla · usa tus power-ups' : 'Llena toda la tabla para ganar'}
+            {state.frenzy ? 'Llena toda la tabla · vigila los 🎁 misteriosos' : 'Llena toda la tabla para ganar'}
           </span>
         )}
       </div>
@@ -616,9 +553,11 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
 export const loteria: GameDefinition<LoteriaState> = {
   id: 'loteria',
   name: 'Lotería Millennial',
-  tagline: 'Mexican bingo of images with a millennial twist — spot each carta, drop your frijoles, fill the whole tabla. Frenzy mode adds power-ups.',
+  tagline: 'Mexican bingo of images with a millennial twist — 2–5 players spot cartas & fill the tabla. Frenzy mode drops surprise mystery power-ups.',
   accent: ACCENT,
   emoji: '🎴',
+  minPlayers: 2,
+  maxPlayers: 5,
   createInitialState,
   start,
   reducer,

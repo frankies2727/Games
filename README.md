@@ -36,17 +36,18 @@ screen:
   closest without busting takes the round, with naturals and doubles worth extra.
   First to the point target wins. Your rival's hole cards stay hidden (`redact`)
   until the reveal.
-- **Lotería Millennial** — Mexican bingo of images with a millennial twist. Pick
-  **Clásico** or **Frenzy** to start. Each player gets a 4×4 **tabla**; one carta
-  is sung at a time, the slot **flashes** on your tabla if you hold it, you drop a
-  **frijol** (bean) on it, then everyone taps **Listo** — the next carta is only
-  sung once *both* players are ready. Fill the **whole tabla**, then shout
-  **¡Lotería!**. **Frenzy** adds power-ups: reach 4 beans for a 🃏 **Comodín**
-  (drop one free wild bean anywhere) and complete a full row for a 🎰 **Tómbola**
-  (auto-fills two of your neediest slots). The deck blends classic cartas with
-  modern chaos (El WiFi, El Aguacate, El Mezcal, El Selfie) and a few very
-  personal ones — **El Ajolote**, **La Piedra del Sol** (Museo de Antropología),
-  **La Ciudadela**, and **La Casa de Tacuba**. The deck's un-sung tail is masked
+- **Lotería Millennial** — the Mexican bingo of images with a millennial twist,
+  for **2–5 players**. Pick **Clásico** or **Frenzy** to start. Each player gets a
+  4×4 **tabla**; one carta is sung at a time, the slot **flashes** on your tabla
+  if you hold it, you drop a **frijol** (bean) on it, then everyone taps **Listo**
+  — the next carta is only sung once *all* players are ready. Fill the **whole
+  tabla**, then shout **¡Lotería!**. In **Frenzy**, a 🎁 **mystery power-up** pops
+  up for a random player at random moments — use it and it's either **"¡1 Free
+  Bean!!"** (for you) or **"a random player just got a free bean… awww"**; you
+  don't know which until you gamble. The deck blends classic cartas with modern
+  chaos (El WiFi, El Aguacate, El Mezcal, El Selfie) and a few very personal ones
+  — **El Ajolote**, **La Piedra del Sol** (Museo de Antropología), **La
+  Ciudadela**, and **La Casa de Tacuba**. The deck's un-sung tail is masked
   server-side (`redact`) so nobody peeks ahead.
 
 When a game ends, the final board stays on screen behind the result panel — hit
