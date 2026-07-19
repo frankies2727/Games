@@ -1,9 +1,10 @@
 # Paper Games
 
 A small gallery of chill, real-time pencil-and-paper games. Play over a shared
-room code (**2 players**, or **2–4** for Ludo), or hit **Play vs Computer** on any
-game's join screen to take on built-in bots solo (offline). Pick one from the home
-screen:
+room code (**2 players**, or **2–4** for Ludo, **2–5** for Lotería), or hit **Play
+vs Computer** on any game's join screen to take on built-in bots solo (offline).
+In an online room, the **host can also add bots** to fill open seats, so you can
+mix real friends and CPUs in the same game. Pick one from the home screen:
 
 - **Paper Numbers** — one player is the **Finder** (races to spot a target number
   on a 10×10 grid; claimed numbers turn red) while the other is the **Dotter**

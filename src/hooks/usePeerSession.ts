@@ -9,15 +9,27 @@ import { BaseState, ConnStatus, GameAction, GameDefinition, NetMessage } from '.
 const PREFIX = 'pn-gallery-v2';
 const hostIdFor = (gameId: string, code: string) => `${PREFIX}-${gameId}-${code}`;
 
+// Bots seated by the host carry a `bot-` id so they're never confused with a
+// real peer id (a PeerJS hash). The host drives them with the same botMove the
+// offline session uses; guests just render them as ordinary players.
+const BOT_PREFIX = 'bot-';
+export const isBotId = (id: string) => id.startsWith(BOT_PREFIX);
+const BOT_DELAY_MS = 650;
+
 export interface Session<S extends BaseState> {
   state: S | null;
   myId: string;
   conn: ConnStatus;
   error: string;
+  isHost: boolean;
+  /** Whether the local player may add/remove bots (host, in a bot-capable game). */
+  canManageBots: boolean;
   join: (roomId: string, name: string) => void;
   start: () => void;
   move: (action: GameAction) => void;
   rematch: () => void;
+  addBot: () => void;
+  removeBot: (id: string) => void;
 }
 
 export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Session<S> {
@@ -25,9 +37,11 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
   const [myId, setMyId] = useState('');
   const [conn, setConn] = useState<ConnStatus>('idle');
   const [error, setError] = useState('');
+  const [isHost, setIsHost] = useState(false);
 
   const peerRef = useRef<Peer | null>(null);
   const isHostRef = useRef(false);
+  const botCounter = useRef(0);
   const myIdRef = useRef('');
   const stateRef = useRef<S | null>(null); // host's authoritative copy
   const connsRef = useRef<DataConnection[]>([]); // host: guests; guest: [hostConn]
@@ -63,6 +77,26 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     if (room.players[pid] || Object.keys(room.players).length >= maxPlayers) return;
     commit({ ...room, players: { ...room.players, [pid]: { id: pid, name } } });
   }, [commit, maxPlayers]);
+
+  // Host-only: drop a bot into an open seat so friends can play alongside CPUs.
+  const hostAddBot = useCallback(() => {
+    const room = stateRef.current;
+    if (!isHostRef.current || !def.botMove || !room || room.status !== 'waiting') return;
+    if (Object.keys(room.players).length >= maxPlayers) return;
+    botCounter.current += 1;
+    const n = botCounter.current;
+    const id = `${BOT_PREFIX}${n}`;
+    commit({ ...room, players: { ...room.players, [id]: { id, name: `Bot ${n}` } } });
+  }, [commit, def, maxPlayers]);
+
+  // Host-only: pull a bot back out of the lobby before the game starts.
+  const hostRemoveBot = useCallback((id: string) => {
+    const room = stateRef.current;
+    if (!isHostRef.current || !room || room.status !== 'waiting' || !isBotId(id) || !room.players[id]) return;
+    const players = { ...room.players };
+    delete players[id];
+    commit({ ...room, players });
+  }, [commit]);
 
   const hostStart = useCallback(() => {
     const room = stateRef.current;
@@ -133,6 +167,7 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     const peer = new Peer();
     peerRef.current = peer;
     isHostRef.current = false;
+    setIsHost(false);
 
     peer.on('open', (id) => {
       myIdRef.current = id;
@@ -171,6 +206,7 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
 
     peer.on('open', (id) => {
       isHostRef.current = true;
+      setIsHost(true);
       myIdRef.current = id;
       setMyId(id);
       stateRef.current = def.createInitialState(code);
@@ -220,10 +256,32 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     else sendToHost({ kind: 'rematch' });
   }, [hostRematch, sendToHost]);
 
+  // Host drives every seated bot, mirroring the offline session: after each
+  // state change, whichever bot has a move takes it after a short delay, and the
+  // resulting state broadcasts to all the real players. Guests never run this.
+  useEffect(() => {
+    if (!isHostRef.current || !def.botMove) return;
+    const room = stateRef.current;
+    if (!room || room.status !== 'playing') return;
+    for (const bid of Object.keys(room.players).filter(isBotId)) {
+      const view = def.redact ? def.redact(room, bid) : room;
+      const action = def.botMove(view, bid);
+      if (!action) continue;
+      const timer = setTimeout(() => {
+        const cur = stateRef.current;
+        if (!cur || cur.status !== 'playing') return;
+        const next = def.reducer(cur, bid, action);
+        if (next !== cur) commit(next);
+      }, BOT_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [state, def, commit]);
+
   useEffect(() => () => {
     if (errTimer.current) clearTimeout(errTimer.current);
     peerRef.current?.destroy();
   }, []);
 
-  return { state, myId, conn, error, join, start, move, rematch };
+  const canManageBots = isHost && !!def.botMove;
+  return { state, myId, conn, error, isHost, canManageBots, join, start, move, rematch, addBot: hostAddBot, removeBot: hostRemoveBot };
 }

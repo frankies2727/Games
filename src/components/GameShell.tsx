@@ -42,7 +42,7 @@ function Chrome({ onExit, error, children }: { onExit: () => void; error?: strin
 // Online (peer-to-peer) flow: join a room code, lobby, then play.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function OnlineGame({ def, onExit, onPlayBot }: { def: GameDefinition<any>; onExit: () => void; onPlayBot: () => void }) {
-  const { state, myId, conn, error, join, start, move, rematch } = usePeerSession(def);
+  const { state, myId, conn, error, join, start, move, rematch, canManageBots, addBot, removeBot } = usePeerSession(def);
   const Board = def.Board;
 
   return (
@@ -55,7 +55,7 @@ function OnlineGame({ def, onExit, onPlayBot }: { def: GameDefinition<any>; onEx
       ) : !state ? (
         <JoinGame gameName={def.name} tagline={def.tagline} onJoin={join} onPlayBot={def.botMove ? onPlayBot : undefined} minPlayers={def.minPlayers} maxPlayers={def.maxPlayers} />
       ) : state.status === 'waiting' ? (
-        <Lobby gameName={def.name} state={state} myId={myId} onStart={start} minPlayers={def.minPlayers} maxPlayers={def.maxPlayers} />
+        <Lobby gameName={def.name} state={state} myId={myId} onStart={start} minPlayers={def.minPlayers} maxPlayers={def.maxPlayers} canManageBots={canManageBots} onAddBot={addBot} onRemoveBot={removeBot} />
       ) : (
         // Keep the final board rendered underneath so players can see exactly
         // how the game ended; the overlay sits on top and can be dismissed.
