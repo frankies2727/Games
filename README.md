@@ -45,10 +45,12 @@ screen:
   up for a random player at random moments — use it and it's either **"¡1 Free
   Bean!!"** (for you) or **"a random player just got a free bean… awww"**; you
   don't know which until you gamble. The deck blends classic cartas with modern
-  chaos (El WiFi, El Aguacate, El Mezcal, El Selfie) and a few very personal ones
-  — **El Ajolote**, **La Piedra del Sol** (Museo de Antropología), **La
-  Ciudadela**, and **La Casa de Tacuba**. The deck's un-sung tail is masked
-  server-side (`redact`) so nobody peeks ahead.
+  chaos (El WiFi, El Aguacate, El Mezcal, El Selfie) and a bunch of very personal
+  trip cartas — **El Ajolote**, **La Piedra del Sol** (Museo de Antropología),
+  **La Ciudadela**, **La Casa de Tacuba**, **El Chapultepec**, **El Matcha**
+  (Matcha Mío Café), **El Zócalo** (Palacio Nacional & its vendors), and **Tacos
+  Del Valle**. The deck's un-sung tail is masked server-side (`redact`) so nobody
+  peeks ahead.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.

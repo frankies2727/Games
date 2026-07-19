@@ -61,6 +61,11 @@ const DECK: Carta[] = [
   { id: 'selfie',    name: 'El Selfie',         emoji: '🤳', verse: 'Si no hay foto, no pasó.' },
   { id: 'elote',     name: 'El Elote',          emoji: '🌽', verse: 'Con mayonesa, queso y chile del bueno.' },
   { id: 'lucha',     name: 'El Luchador',       emoji: '🤼', verse: 'Máscara contra cabellera.' },
+  // July 2026 — our trip cartas (los recuerdos de nuestro viaje).
+  { id: 'chapultepec', name: 'El Chapultepec',   emoji: '🏰', verse: 'El castillo sobre el bosque más grande de la ciudad.' },
+  { id: 'matcha',      name: 'El Matcha',        emoji: '🍵', verse: 'Un respiro verde en Matcha Mío Café.' },
+  { id: 'zocalo',      name: 'El Zócalo',        emoji: '🛍️', verse: 'La gran plaza de vendedores frente al Palacio Nacional.' },
+  { id: 'tacosvalle',  name: 'Tacos Del Valle',  emoji: '🌯', verse: 'Los mejores de la cuadra — al pastor y bien servidos.' },
 ];
 
 const CARTA = Object.fromEntries(DECK.map((c) => [c.id, c])) as Record<string, Carta>;
@@ -73,6 +78,7 @@ const PALETTE = [
   '#06D6A0', '#2EC4B6', '#00F5D4', '#4CC9F0', '#00BBF9', '#3A86FF',
   '#4361EE', '#5E60CE', '#7B2CBF', '#9D4EDD', '#C77DFF', '#B5179E',
   '#F15BB5', '#EF476F', '#E76F51', '#F4A261', '#2A9D8F', '#8338EC',
+  '#00D4FF', '#FF5D8F', '#9EF01A', '#FF9F1C',
 ];
 const CARD_COLOR: Record<string, string> = Object.fromEntries(
   DECK.map((c, i) => [c.id, PALETTE[i % PALETTE.length]]),

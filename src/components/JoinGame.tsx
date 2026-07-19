@@ -6,9 +6,12 @@ interface JoinGameProps {
   onJoin: (roomId: string, name: string) => void;
   /** When provided, shows a "Play vs Computer" shortcut (solo, offline). */
   onPlayBot?: () => void;
+  minPlayers?: number;
+  maxPlayers?: number;
 }
 
-export function JoinGame({ gameName, tagline, onJoin, onPlayBot }: JoinGameProps) {
+export function JoinGame({ gameName, tagline, onJoin, onPlayBot, minPlayers = 2, maxPlayers = 2 }: JoinGameProps) {
+  const multi = maxPlayers > 2;
   const [roomId, setRoomId] = useState('');
   const [name, setName] = useState('');
 
@@ -20,6 +23,11 @@ export function JoinGame({ gameName, tagline, onJoin, onPlayBot }: JoinGameProps
           <p className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">
             {tagline ?? 'Share a room code with a friend to play'}
           </p>
+          {multi && (
+            <p className="text-[10px] font-mono uppercase tracking-widest text-[#F72585] font-bold pt-1">
+              👥 {minPlayers}–{maxPlayers} players · online with friends
+            </p>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -68,7 +76,9 @@ export function JoinGame({ gameName, tagline, onJoin, onPlayBot }: JoinGameProps
           )}
 
           <p className="text-[10px] text-center text-[#8A92A0] font-mono leading-relaxed">
-            First to a code hosts the room. Share the same code with one friend to join them.
+            {multi
+              ? `First to a code hosts the room. Share the same code with up to ${maxPlayers - 1} friends — the host starts once ${minPlayers}+ are in.`
+              : 'First to a code hosts the room. Share the same code with one friend to join them.'}
           </p>
         </div>
       </div>
