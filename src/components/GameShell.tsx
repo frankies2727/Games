@@ -53,7 +53,7 @@ function OnlineGame({ def, onExit, onPlayBot }: { def: GameDefinition<any>; onEx
           <p className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Connecting to room…</p>
         </div>
       ) : !state ? (
-        <JoinGame gameName={def.name} tagline={def.tagline} onJoin={join} onPlayBot={def.botMove ? onPlayBot : undefined} />
+        <JoinGame gameName={def.name} tagline={def.tagline} onJoin={join} onPlayBot={def.botMove ? onPlayBot : undefined} minPlayers={def.minPlayers} maxPlayers={def.maxPlayers} />
       ) : state.status === 'waiting' ? (
         <Lobby gameName={def.name} state={state} myId={myId} onStart={start} minPlayers={def.minPlayers} maxPlayers={def.maxPlayers} />
       ) : (
