@@ -36,14 +36,18 @@ screen:
   closest without busting takes the round, with naturals and doubles worth extra.
   First to the point target wins. Your rival's hole cards stay hidden (`redact`)
   until the reveal.
-- **Lotería Millennial** — Mexican bingo of images with a millennial twist. Each
-  player gets a 4×4 **tabla**; anyone can **sing** the next carta, and you drop a
-  **frijol** (bean) on cards you hold as they're called. The deck blends classic
-  cartas with modern chaos (El WiFi, El Aguacate, El Mezcal, El Selfie) and a few
-  very personal ones — **El Ajolote**, **La Piedra del Sol** (Museo de
-  Antropología), **La Ciudadela**, and **La Casa de Tacuba**. Complete a row,
-  column, diagonal, the four corners, or the full tabla, then shout **¡Lotería!**.
-  The deck's un-sung tail is masked server-side (`redact`) so nobody peeks ahead.
+- **Lotería Millennial** — Mexican bingo of images with a millennial twist. Pick
+  **Clásico** or **Frenzy** to start. Each player gets a 4×4 **tabla**; one carta
+  is sung at a time, the slot **flashes** on your tabla if you hold it, you drop a
+  **frijol** (bean) on it, then everyone taps **Listo** — the next carta is only
+  sung once *both* players are ready. Fill the **whole tabla**, then shout
+  **¡Lotería!**. **Frenzy** adds power-ups: reach 4 beans for a 🃏 **Comodín**
+  (drop one free wild bean anywhere) and complete a full row for a 🎰 **Tómbola**
+  (auto-fills two of your neediest slots). The deck blends classic cartas with
+  modern chaos (El WiFi, El Aguacate, El Mezcal, El Selfie) and a few very
+  personal ones — **El Ajolote**, **La Piedra del Sol** (Museo de Antropología),
+  **La Ciudadela**, and **La Casa de Tacuba**. The deck's un-sung tail is masked
+  server-side (`redact`) so nobody peeks ahead.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
