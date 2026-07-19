@@ -1,4 +1,5 @@
 import { BaseState } from '../types';
+import { isBotId } from '../hooks/usePeerSession';
 
 interface LobbyProps {
   gameName: string;
@@ -7,11 +8,16 @@ interface LobbyProps {
   myId: string;
   minPlayers?: number;
   maxPlayers?: number;
+  /** Host of a bot-capable game: can add/remove CPU players. */
+  canManageBots?: boolean;
+  onAddBot?: () => void;
+  onRemoveBot?: (id: string) => void;
 }
 
-export function Lobby({ gameName, state, onStart, myId, minPlayers = 2, maxPlayers = 2 }: LobbyProps) {
+export function Lobby({ gameName, state, onStart, myId, minPlayers = 2, maxPlayers = 2, canManageBots = false, onAddBot, onRemoveBot }: LobbyProps) {
   const players = Object.values(state.players);
   const canStart = players.length >= minPlayers && players.length <= maxPlayers;
+  const roomFull = players.length >= maxPlayers;
   // Show a slot for each still-open seat, up to the max.
   const emptySlots = Math.max(0, maxPlayers - players.length);
 
@@ -28,17 +34,42 @@ export function Lobby({ gameName, state, onStart, myId, minPlayers = 2, maxPlaye
             Players ({players.length}/{maxPlayers})
           </p>
           <ul className="space-y-4">
-            {players.map((p) => (
-              <li key={p.id} className="flex items-center space-x-4 p-4 bg-[#262B34] border-2 border-[#2E343F] shadow-[4px_4px_0px_#2E343F]">
-                <div className="h-12 w-12 bg-[#262B34] text-white flex items-center justify-center font-bold text-xl font-mono border-2 border-[#39414E]">
-                  {p.name.charAt(0).toUpperCase()}
-                </div>
-                <span className="font-bold text-[#F5F6F7] text-xl uppercase tracking-wider">
-                  {p.name} {p.id === myId && <span className="text-[10px] text-[#E63946] ml-2 tracking-widest font-mono align-middle">(YOU)</span>}
-                </span>
+            {players.map((p) => {
+              const bot = isBotId(p.id);
+              return (
+                <li key={p.id} className="flex items-center space-x-4 p-4 bg-[#262B34] border-2 border-[#2E343F] shadow-[4px_4px_0px_#2E343F]">
+                  <div className="h-12 w-12 bg-[#262B34] text-white flex items-center justify-center font-bold text-xl font-mono border-2 border-[#39414E]">
+                    {bot ? '🤖' : p.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="flex-1 font-bold text-[#F5F6F7] text-xl uppercase tracking-wider">
+                    {p.name}
+                    {p.id === myId && <span className="text-[10px] text-[#E63946] ml-2 tracking-widest font-mono align-middle">(YOU)</span>}
+                    {bot && <span className="text-[10px] text-[#06D6A0] ml-2 tracking-widest font-mono align-middle">(CPU)</span>}
+                  </span>
+                  {bot && canManageBots && (
+                    <button
+                      onClick={() => onRemoveBot?.(p.id)}
+                      aria-label={`Remove ${p.name}`}
+                      className="h-8 w-8 flex items-center justify-center text-[#9CA3AF] hover:text-[#E63946] border-2 border-[#39414E] hover:border-[#E63946] font-mono font-bold transition-colors"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+            {canManageBots && !roomFull && (
+              <li>
+                <button
+                  onClick={onAddBot}
+                  className="w-full flex items-center space-x-4 p-4 bg-[#1A1D24] hover:bg-[#262B34] active:translate-y-0.5 border-2 border-dashed border-[#39414E] hover:border-[#06D6A0] transition-all group"
+                >
+                  <div className="h-12 w-12 border-2 border-dashed border-[#39414E] group-hover:border-[#06D6A0] bg-[#262B34] flex items-center justify-center text-2xl">🤖</div>
+                  <span className="font-bold text-[#9CA3AF] group-hover:text-[#F5F6F7] text-lg uppercase tracking-widest">＋ Add a bot</span>
+                </button>
               </li>
-            ))}
-            {Array.from({ length: emptySlots }).map((_, i) => (
+            )}
+            {Array.from({ length: canManageBots ? Math.max(0, emptySlots - 1) : emptySlots }).map((_, i) => (
               <li key={`empty-${i}`} className="flex items-center space-x-4 p-4 bg-[#1A1D24] border-2 border-dashed border-[#2E343F]">
                 <div className="h-12 w-12 border-2 border-dashed border-[#2E343F] bg-[#262B34]" />
                 <span className="font-mono h-4 w-24 bg-[#262B34] animate-pulse" />

@@ -86,9 +86,13 @@ export function useLocalSession<S extends BaseState>(
     myId: HUMAN,
     conn: 'connected',
     error: '',
+    isHost: true,
+    canManageBots: false, // offline seating is fixed via the player-count picker
     join,
     start,
     move,
     rematch,
+    addBot: () => {},
+    removeBot: () => {},
   };
 }
