@@ -65,6 +65,20 @@ const DECK: Carta[] = [
 
 const CARTA = Object.fromEntries(DECK.map((c) => [c.id, c])) as Record<string, Carta>;
 
+// A vivid, festive colour per carta so the tabla reads like a real Lotería
+// board — every card keeps its own hue whether or not it's been sung.
+const PALETTE = [
+  '#F72585', '#FF477E', '#FF6B6B', '#FB5607', '#FF924C', '#FFA62B',
+  '#FFBE0B', '#FFD166', '#E8E23A', '#C1FF72', '#8AC926', '#52B788',
+  '#06D6A0', '#2EC4B6', '#00F5D4', '#4CC9F0', '#00BBF9', '#3A86FF',
+  '#4361EE', '#5E60CE', '#7B2CBF', '#9D4EDD', '#C77DFF', '#B5179E',
+  '#F15BB5', '#EF476F', '#E76F51', '#F4A261', '#2A9D8F', '#8338EC',
+];
+const CARD_COLOR: Record<string, string> = Object.fromEntries(
+  DECK.map((c, i) => [c.id, PALETTE[i % PALETTE.length]]),
+);
+const colorOf = (id: string | null | undefined) => (id && CARD_COLOR[id]) || '#F72585';
+
 const TABLA_SIZE = 16;        // 4×4
 const MYSTERY_CHANCE = 0.28;  // Frenzy: odds a mystery power-up appears each round
 
@@ -310,14 +324,15 @@ function ModeChooser({ myTurn, chooserName, dispatch }: { myTurn: boolean; choos
 }
 
 function CalledCard({ carta, count, total }: { carta: Carta | null; count: number; total: number }) {
+  const color = carta ? colorOf(carta.id) : ACCENT;
   return (
     <div className="flex flex-col items-center gap-3">
       <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-[#8A92A0]">
         La carta cantada · {count}/{total}
       </span>
       <div
-        className="relative w-44 sm:w-52 border-2 border-[#39414E] bg-[#12151C] px-4 py-5 flex flex-col items-center gap-2 text-center"
-        style={{ boxShadow: `6px 6px 0px ${ACCENT}` }}
+        className="relative w-44 sm:w-52 border-2 px-4 py-5 flex flex-col items-center gap-2 text-center"
+        style={{ boxShadow: `6px 6px 0px ${color}`, borderColor: color, background: `${color}1A` }}
       >
         {carta ? (
           <>
@@ -339,30 +354,33 @@ function CalledCard({ carta, count, total }: { carta: Carta | null; count: numbe
 interface TablaCellProps {
   key?: number;
   carta: Carta;
+  color: string;
   called: boolean;
   marked: boolean;
   flash: boolean;   // current sung carta sitting on this slot, still unbeaned
   onClick: () => void;
 }
 
-function TablaCell({ carta, called, marked, flash, onClick }: TablaCellProps) {
+function TablaCell({ carta, color, called, marked, flash, onClick }: TablaCellProps) {
   const canPlay = marked || called;
+  // Every carta keeps its colour; un-sung cards just sit a little quieter.
+  const background = marked ? `${color}59` : called ? `${color}2E` : `${color}1A`;
   return (
     <button
       disabled={!canPlay}
       onClick={onClick}
+      style={{ background, borderColor: color }}
       className={cn(
         'relative aspect-[3/4] border-2 flex flex-col items-center justify-center gap-0.5 p-1 transition-all touch-manipulation overflow-hidden',
-        'bg-[#12151C] border-[#39414E]',
-        !called && !marked && 'opacity-40 grayscale',
-        called && !marked && 'hover:bg-[#1E222B] active:translate-y-0.5',
-        marked && 'border-[#F72585] bg-[#F72585]/10',
+        !called && !marked && 'opacity-80',
+        called && !marked && 'hover:brightness-125 active:translate-y-0.5',
+        marked && 'ring-2 ring-[#F72585] ring-offset-1 ring-offset-[#0F1117]',
         flash && 'ring-4 ring-[#FFD60A] ring-offset-1 ring-offset-[#0F1117] animate-pulse z-10',
       )}
       title={carta.name}
     >
       <span className="text-2xl sm:text-4xl leading-none">{carta.emoji}</span>
-      <span className="text-[7px] sm:text-[9px] font-bold uppercase tracking-tight text-[#9CA3AF] leading-none text-center line-clamp-1 w-full px-0.5">
+      <span className="text-[7px] sm:text-[9px] font-bold uppercase tracking-tight text-[#F5F6F7] leading-none text-center line-clamp-1 w-full px-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
         {carta.name}
       </span>
       {marked && (
@@ -458,16 +476,24 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
           </div>
         </div>
       )}
-      {state.frenzy && ev && !myMystery && (
-        <div className={cn(
-          'w-full max-w-md mb-4 border-2 px-4 py-2 text-center text-xs font-mono font-bold uppercase tracking-widest',
-          ev.kind === 'good' ? 'border-[#06D6A0] bg-[#06D6A0]/10 text-[#9BE7D3]' : 'border-[#39414E] bg-[#1A1D24] text-[#9CA3AF]',
-        )}>
-          {ev.kind === 'good'
-            ? `🎉 ${nameOf(ev.forId)}: ¡1 Free Bean!!`
-            : `🎲 ${nameOf(ev.beneficiaryId)} got a free bean — awww`}
-        </div>
-      )}
+      {state.frenzy && ev && !myMystery && (() => {
+        // "Awww" only when the free bean landed on someone else — if it landed
+        // on you (even on the random roll), it's good news, no awww.
+        const iBenefited = ev.beneficiaryId === myId;
+        const text = iBenefited
+          ? '🎉 You got a free bean!'
+          : ev.kind === 'good'
+            ? `🎉 ${nameOf(ev.beneficiaryId)}: ¡1 Free Bean!!`
+            : `🎲 ${nameOf(ev.beneficiaryId)} got a free bean — awww`;
+        return (
+          <div className={cn(
+            'w-full max-w-md mb-4 border-2 px-4 py-2 text-center text-xs font-mono font-bold uppercase tracking-widest',
+            iBenefited ? 'border-[#06D6A0] bg-[#06D6A0]/10 text-[#9BE7D3]' : 'border-[#39414E] bg-[#1A1D24] text-[#9CA3AF]',
+          )}>
+            {text}
+          </div>
+        );
+      })()}
 
       {/* Round gate: flash your slot, bean it, then tap Listo. */}
       <div className="w-full max-w-md flex flex-col items-center gap-2 mb-5">
@@ -511,6 +537,7 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
             <TablaCell
               key={i}
               carta={carta}
+              color={colorOf(id)}
               called={isCalled}
               marked={marked}
               flash={i === currentIdx && !marked}
