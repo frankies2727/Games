@@ -101,8 +101,9 @@ function freeBeanSlot(tabla: string[], marks: boolean[], called: Set<string>): n
   return unmarked.find((i) => !called.has(tabla[i])) ?? unmarked[0];
 }
 
-// A resolved mystery: who got the bean and whether it was the good roll.
-interface MysteryEvent { kind: 'good' | 'bad'; beneficiaryId: string; forId: string }
+// A resolved mystery: who got the bean, which carta it landed on, and whether
+// it was the good roll.
+interface MysteryEvent { kind: 'good' | 'bad'; beneficiaryId: string; forId: string; cartaId: string | null }
 
 export interface LoteriaState extends BaseState {
   phase: 'choosing' | 'playing';         // pick Clásico / Frenzy, then play
@@ -207,15 +208,17 @@ function reducer(state: LoteriaState, pid: string, action: GameAction): LoteriaS
     const tabla = state.tablas[beneficiaryId];
     const marks = state.marks[beneficiaryId];
     let marksOut = state.marks;
+    let cartaId: string | null = null;
     if (tabla && marks) {
       const slot = freeBeanSlot(tabla, marks, called);
       if (slot >= 0) {
         const next = marks.slice();
         next[slot] = true;
         marksOut = { ...state.marks, [beneficiaryId]: next };
+        cartaId = tabla[slot];
       }
     }
-    return { ...state, marks: marksOut, mystery: null, lastEvent: { kind: good ? 'good' : 'bad', beneficiaryId, forId: pid } };
+    return { ...state, marks: marksOut, mystery: null, lastEvent: { kind: good ? 'good' : 'bad', beneficiaryId, forId: pid, cartaId } };
   }
 
   // ---- Ready up. When everyone's ready, the next carta is sung automatically. ----
@@ -480,11 +483,13 @@ function Board({ state, myId, dispatch }: BoardProps<LoteriaState>) {
         // "Awww" only when the free bean landed on someone else — if it landed
         // on you (even on the random roll), it's good news, no awww.
         const iBenefited = ev.beneficiaryId === myId;
+        const c = ev.cartaId ? CARTA[ev.cartaId] : null;
+        const on = c ? ` en ${c.emoji} ${c.name}` : ''; // which carta got beaned
         const text = iBenefited
-          ? '🎉 You got a free bean!'
+          ? `🎉 ¡1 Free Bean${on}!`
           : ev.kind === 'good'
-            ? `🎉 ${nameOf(ev.beneficiaryId)}: ¡1 Free Bean!!`
-            : `🎲 ${nameOf(ev.beneficiaryId)} got a free bean — awww`;
+            ? `🎉 ${nameOf(ev.beneficiaryId)}: ¡1 Free Bean${on}!`
+            : `🎲 ${nameOf(ev.beneficiaryId)} got a free bean${on} — awww`;
         return (
           <div className={cn(
             'w-full max-w-md mb-4 border-2 px-4 py-2 text-center text-xs font-mono font-bold uppercase tracking-widest',
