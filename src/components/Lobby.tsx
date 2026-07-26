@@ -1,3 +1,4 @@
+import { ReactNode } from 'react';
 import { BaseState } from '../types';
 import { isBotId } from '../hooks/usePeerSession';
 
@@ -12,9 +13,11 @@ interface LobbyProps {
   canManageBots?: boolean;
   onAddBot?: () => void;
   onRemoveBot?: (id: string) => void;
+  /** Optional game-specific pre-game setup UI (e.g. a colour picker). */
+  extra?: ReactNode;
 }
 
-export function Lobby({ gameName, state, onStart, myId, minPlayers = 2, maxPlayers = 2, canManageBots = false, onAddBot, onRemoveBot }: LobbyProps) {
+export function Lobby({ gameName, state, onStart, myId, minPlayers = 2, maxPlayers = 2, canManageBots = false, onAddBot, onRemoveBot, extra }: LobbyProps) {
   const players = Object.values(state.players);
   const canStart = players.length >= minPlayers && players.length <= maxPlayers;
   const roomFull = players.length >= maxPlayers;
@@ -77,6 +80,8 @@ export function Lobby({ gameName, state, onStart, myId, minPlayers = 2, maxPlaye
             ))}
           </ul>
         </div>
+
+        {extra && <div className="mb-8">{extra}</div>}
 
         <button
           onClick={onStart}

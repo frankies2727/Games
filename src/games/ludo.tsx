@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { BaseState, BoardProps, GameAction, GameDefinition } from '../types';
 import { cn } from '../lib/utils';
 
@@ -152,10 +152,21 @@ function start(state: LudoState): LudoState {
   const colorOf: Record<string, Color> = {};
   const themeOf: Record<string, string> = {};
   const tokens: Record<string, number[]> = {};
+  const used = new Set<string>();
+  // Honour colours locked in during the lobby (skipping any duplicates)...
+  order.forEach((id) => {
+    const picked = state.themeOf?.[id];
+    if (picked && THEME_BY_ID[picked] && !used.has(picked)) { themeOf[id] = picked; used.add(picked); }
+  });
+  // ...then seat everyone, giving anyone who didn't pick their seat's classic
+  // colour, or the next free theme if that colour is already taken.
   order.forEach((id, i) => {
     colorOf[id] = colors[i];
-    themeOf[id] = colors[i]; // default theme = the seat's classic colour
     tokens[id] = [-1, -1, -1, -1];
+    if (themeOf[id]) return;
+    const seat: string = colors[i];
+    if (!used.has(seat)) { themeOf[id] = seat; used.add(seat); }
+    else { const free = THEMES.find((t) => !used.has(t.id)); themeOf[id] = free ? free.id : seat; used.add(themeOf[id]); }
   });
   return { ...state, status: 'playing', order, colorOf, themeOf, tokens, turnId: order[0], die: null, mustRoll: true, guess: null, awaitingProceed: false, lastEvent: null, log: [] };
 }
@@ -244,18 +255,21 @@ function applyWildcard(state: LudoState, tokens: Record<string, number[]>, pid: 
 }
 
 function reducer(state: LudoState, pid: string, action: GameAction): LudoState {
-  if (state.status !== 'playing') return state;
+  if (state.status === 'gameover') return state;
 
-  // Any player may recolour their own tokens at any time — the seat (geometry)
-  // is unchanged, only the visual theme. A theme already claimed by another
-  // player is rejected so two seats never look identical.
+  // Colours are chosen in the lobby (status 'waiting') and locked once play
+  // begins — a player can only set their own, and only to a theme no other
+  // player has already claimed, so no two seats ever look identical.
   if (action.a === 'setTheme') {
+    if (state.status !== 'waiting' || !state.players[pid]) return state;
     const themeId = action.theme as string;
     if (!THEME_BY_ID[themeId]) return state;
     if (state.themeOf[pid] === themeId) return state;
-    if (state.order.some((id) => id !== pid && state.themeOf[id] === themeId)) return state;
+    if (Object.entries(state.themeOf).some(([id, tid]) => id !== pid && tid === themeId)) return state;
     return { ...state, themeOf: { ...state.themeOf, [pid]: themeId } };
   }
+
+  if (state.status !== 'playing') return state;
 
   // Anyone may click to pass play on — so a solo player also advances bot turns.
   if (action.a === 'proceed') {
@@ -399,7 +413,6 @@ function Token({ fill, active, count, onClick }: { fill: string; active?: boolea
 }
 
 function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
-  const [pickerOpen, setPickerOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll the history to the newest entry as events arrive.
@@ -492,7 +505,6 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
 
   const turnPlayer = state.turnId ? state.players[state.turnId] : null;
   const turnTheme = state.turnId ? themeOf(state.turnId) : null;
-  const myTheme = themeOf(myId);
   const canGuess = myTurn && state.mustRoll && !state.awaitingProceed && allPenned(state, myId);
   const history = state.log ?? [];
 
@@ -531,43 +543,7 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
         ) : myTurn && !state.mustRoll ? (
           <span className="text-[11px] font-mono uppercase tracking-wider text-[#9CA3AF] animate-pulse">Tap a glowing token</span>
         ) : null}
-        <button
-          onClick={() => setPickerOpen((o) => !o)}
-          className="px-4 py-2 bg-[#1A1D24] text-[#F5F6F7] font-bold uppercase tracking-widest text-xs border-2 border-[#39414E] shadow-[3px_3px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all flex items-center gap-2"
-        >
-          <span className="w-4 h-4 rounded-full border border-white/50" style={{ background: myTheme.fill }} />
-          🎨 Colour
-        </button>
       </div>
-
-      {/* Colour picker */}
-      {pickerOpen && (
-        <div className="w-full max-w-[440px] mb-4 bg-[#12151C] border-2 border-[#2E343F] p-3">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-[#8A92A0] mb-2">Choose your colour — solids, gradients & rainbow</p>
-          <div className="grid grid-cols-8 gap-2">
-            {THEMES.map((t) => {
-              const takenByOther = state.order.some((id) => id !== myId && state.themeOf[id] === t.id);
-              const mine = (state.themeOf?.[myId] ?? state.colorOf[myId]) === t.id;
-              return (
-                <button
-                  key={t.id}
-                  disabled={takenByOther}
-                  onClick={() => dispatch({ a: 'setTheme', theme: t.id })}
-                  title={takenByOther ? `${t.label} (taken)` : t.label}
-                  className={cn(
-                    'relative aspect-square rounded-full border-2 transition-transform',
-                    mine ? 'border-white ring-2 ring-white scale-110' : 'border-[#39414E]',
-                    takenByOther ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110',
-                  )}
-                  style={{ background: t.fill }}
-                >
-                  {mine && <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">✓</span>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Guess-the-roll escape (shown only when all your pieces are penned) */}
       {canGuess && (
@@ -642,6 +618,56 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
   );
 }
 
+// Pre-game colour lock-in, shown in the lobby (online) and the solo setup
+// screen. Each player claims a theme before Start; colours are fixed thereafter.
+function LobbyColorPicker({ state, myId, dispatch }: BoardProps<LudoState>) {
+  const mine = state.themeOf?.[myId];
+  const players = Object.values(state.players);
+  return (
+    <div>
+      <p className="text-[11px] font-mono uppercase tracking-widest text-[#8A92A0] mb-3 text-center">Pick your colour</p>
+      <div className="grid grid-cols-8 gap-2 mb-4">
+        {THEMES.map((t) => {
+          const takenByOther = Object.entries(state.themeOf ?? {}).some(([id, tid]) => id !== myId && tid === t.id);
+          const isMine = mine === t.id;
+          return (
+            <button
+              key={t.id}
+              disabled={takenByOther}
+              onClick={() => dispatch({ a: 'setTheme', theme: t.id })}
+              title={takenByOther ? `${t.label} (taken)` : t.label}
+              className={cn(
+                'relative aspect-square rounded-full border-2 transition-transform',
+                isMine ? 'border-white ring-2 ring-white scale-110' : 'border-[#39414E]',
+                takenByOther ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110',
+              )}
+              style={{ background: t.fill }}
+            >
+              {isMine && <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">✓</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className="space-y-1.5">
+        {players.map((p) => {
+          const tid = state.themeOf?.[p.id];
+          const theme = tid ? THEME_BY_ID[tid] : null;
+          return (
+            <div key={p.id} className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-[#9CA3AF]">
+              <span className="w-3 h-3 rounded-full border border-black/40" style={{ background: theme ? theme.fill : '#2E343F' }} />
+              {p.id === myId ? 'You' : p.name}
+              <span className="ml-auto text-[10px] text-[#8A92A0]">{theme ? theme.label : 'auto'}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[9px] font-mono uppercase tracking-wider text-[#5B6470] mt-3 text-center leading-relaxed">
+        Optional — a free colour is assigned if you skip. Locked once the game starts.
+      </p>
+    </div>
+  );
+}
+
 export const ludo: GameDefinition<LudoState> = {
   id: 'ludo',
   name: 'Sorry',
@@ -655,6 +681,7 @@ export const ludo: GameDefinition<LudoState> = {
   reducer,
   botMove,
   Board,
+  LobbyExtra: LobbyColorPicker,
   gameOverMessage: (state, myId) =>
     state.winnerId === myId
       ? '🎉 All four home — you win!'
