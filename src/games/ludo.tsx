@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { BaseState, BoardProps, GameAction, GameDefinition } from '../types';
 import { cn } from '../lib/utils';
 
@@ -34,7 +35,6 @@ const PATH: [number, number][] = [
 ];
 
 const START_INDEX: Record<Color, number> = { red: 0, green: 13, yellow: 26, blue: 39 };
-const COLOR_HEX: Record<Color, string> = { red: '#E63946', green: '#2A9D8F', yellow: '#F4C430', blue: '#457B9D' };
 
 // Home column cells (5 lanes + the finish cell) leading into the centre.
 const HOME_CELLS: Record<Color, [number, number][]> = {
@@ -55,11 +55,40 @@ const BASE_SLOTS: Record<Color, [number, number][]> = {
 const SAFE = new Set([0, 13, 26, 39, 8, 21, 34, 47]); // start squares + stars
 const FINISH = 56;
 
-// The bottom-left seat plays as the rainbow colour.
+// ---- Colour themes ----------------------------------------------------------
+// A player's board *seat* (red/green/yellow/blue corner) is fixed geometry, but
+// the colour their tokens & lanes render in is a freely chosen theme. Themes can
+// be flat colours, multi-stop gradients, or a full rainbow. `fill` is the CSS
+// background used for tokens/swatches; `solid` is a representative hex used for
+// the muted lane/pen tints and borders so the board stays readable.
+interface Theme { id: string; label: string; fill: string; solid: string }
+
 const RAINBOW = 'conic-gradient(from 140deg,#EF4444,#F59E0B,#FDE047,#22C55E,#3B82F6,#A855F7,#EF4444)';
-const isRainbow = (c: Color) => c === 'blue';
-const fillOf = (c: Color) => (isRainbow(c) ? RAINBOW : COLOR_HEX[c]);
-const tintOf = (c: Color, alpha: string) => (isRainbow(c) ? RAINBOW : COLOR_HEX[c] + alpha);
+
+const THEMES: Theme[] = [
+  { id: 'red', label: 'Crimson', fill: '#E63946', solid: '#E63946' },
+  { id: 'green', label: 'Teal', fill: '#2A9D8F', solid: '#2A9D8F' },
+  { id: 'yellow', label: 'Gold', fill: '#F4C430', solid: '#F4C430' },
+  { id: 'blue', label: 'Ocean', fill: '#457B9D', solid: '#457B9D' },
+  { id: 'purple', label: 'Amethyst', fill: '#A855F7', solid: '#A855F7' },
+  { id: 'pink', label: 'Rose', fill: '#EC4899', solid: '#EC4899' },
+  { id: 'orange', label: 'Ember', fill: '#F97316', solid: '#F97316' },
+  { id: 'cyan', label: 'Aqua', fill: '#06B6D4', solid: '#06B6D4' },
+  { id: 'lime', label: 'Lime', fill: '#84CC16', solid: '#84CC16' },
+  { id: 'slate', label: 'Steel', fill: '#64748B', solid: '#64748B' },
+  { id: 'rainbow', label: 'Rainbow', fill: RAINBOW, solid: '#A855F7' },
+  { id: 'sunset', label: 'Sunset', fill: 'linear-gradient(135deg,#F97316,#EC4899,#A855F7)', solid: '#EC4899' },
+  { id: 'lagoon', label: 'Lagoon', fill: 'linear-gradient(135deg,#06B6D4,#3B82F6,#6366F1)', solid: '#3B82F6' },
+  { id: 'forest', label: 'Forest', fill: 'linear-gradient(135deg,#22C55E,#10B981,#047857)', solid: '#10B981' },
+  { id: 'inferno', label: 'Inferno', fill: 'linear-gradient(135deg,#FDE047,#F97316,#DC2626)', solid: '#F97316' },
+  { id: 'candy', label: 'Candy', fill: 'linear-gradient(135deg,#F472B6,#C084FC,#60A5FA)', solid: '#C084FC' },
+];
+
+const THEME_BY_ID: Record<string, Theme> = Object.fromEntries(THEMES.map((t) => [t.id, t]));
+// Each seat's default theme matches its classic colour (theme ids share the names).
+const DEFAULT_THEME: Record<Color, Theme> = {
+  red: THEME_BY_ID.red, green: THEME_BY_ID.green, yellow: THEME_BY_ID.yellow, blue: THEME_BY_ID.blue,
+};
 
 // Wildcard tiles (absolute loop indices): landing here fires a random powerup or
 // unlucky event. Chosen off the safe squares and start squares, one per arm.
@@ -74,13 +103,27 @@ const SEATING: Record<number, Color[]> = {
 
 export interface LudoState extends BaseState {
   order: string[]; // player ids in seat/turn order
-  colorOf: Record<string, Color>; // player id -> colour
+  colorOf: Record<string, Color>; // player id -> seat colour (board geometry)
+  themeOf: Record<string, string>; // player id -> chosen colour theme id
   tokens: Record<string, number[]>; // player id -> 4 token positions
   turnId: string | null;
   die: number | null; // rolled value awaiting a move (null = must roll)
   mustRoll: boolean;
+  guess: number | null; // guessed die value for a pen escape (all-in-base only)
   awaitingProceed: boolean; // turn is over; someone must click to pass play on
   lastEvent: string | null;
+  log: string[]; // running history of events (oldest first)
+}
+
+const LOG_MAX = 80;
+
+// Append a state's lastEvent to its running history (de-duped, capped).
+function pushLog(next: LudoState): LudoState {
+  if (!next.lastEvent) return next;
+  const prev = next.log ?? [];
+  if (prev[prev.length - 1] === next.lastEvent) return next;
+  const log = [...prev, next.lastEvent];
+  return { ...next, log: log.length > LOG_MAX ? log.slice(log.length - LOG_MAX) : log };
 }
 
 function createInitialState(roomId: string): LudoState {
@@ -91,12 +134,15 @@ function createInitialState(roomId: string): LudoState {
     winnerId: null,
     order: [],
     colorOf: {},
+    themeOf: {},
     tokens: {},
     turnId: null,
     die: null,
     mustRoll: true,
+    guess: null,
     awaitingProceed: false,
     lastEvent: null,
+    log: [],
   };
 }
 
@@ -104,15 +150,19 @@ function start(state: LudoState): LudoState {
   const order = Object.keys(state.players);
   const colors = SEATING[order.length] ?? SEATING[4].slice(0, order.length);
   const colorOf: Record<string, Color> = {};
+  const themeOf: Record<string, string> = {};
   const tokens: Record<string, number[]> = {};
   order.forEach((id, i) => {
     colorOf[id] = colors[i];
+    themeOf[id] = colors[i]; // default theme = the seat's classic colour
     tokens[id] = [-1, -1, -1, -1];
   });
-  return { ...state, status: 'playing', order, colorOf, tokens, turnId: order[0], die: null, mustRoll: true, awaitingProceed: false, lastEvent: null };
+  return { ...state, status: 'playing', order, colorOf, themeOf, tokens, turnId: order[0], die: null, mustRoll: true, guess: null, awaitingProceed: false, lastEvent: null, log: [] };
 }
 
 const mainAbs = (color: Color, p: number) => (START_INDEX[color] + p) % 52; // valid for p in 0..50
+
+const allPenned = (state: LudoState, pid: string) => state.tokens[pid].every((t) => t === -1);
 
 // Destination of a token if `die` is applied, plus any opponent tokens it would
 // capture — or null if the move is illegal.
@@ -124,7 +174,10 @@ function landing(state: LudoState, pid: string, tokenIdx: number, die: number): 
 
   let to: number;
   if (p === -1) {
-    if (die !== 6) return null; // need a 6 to leave the pen
+    // Normally a 6 releases a token. When ALL four are penned, a correct die
+    // guess also frees one (see the guess mechanic) — otherwise you're stuck.
+    const canLeave = die === 6 || (allPenned(state, pid) && state.guess === die);
+    if (!canLeave) return null;
     to = 0;
   } else {
     if (p >= FINISH) return null; // already Home
@@ -193,25 +246,58 @@ function applyWildcard(state: LudoState, tokens: Record<string, number[]>, pid: 
 function reducer(state: LudoState, pid: string, action: GameAction): LudoState {
   if (state.status !== 'playing') return state;
 
+  // Any player may recolour their own tokens at any time — the seat (geometry)
+  // is unchanged, only the visual theme. A theme already claimed by another
+  // player is rejected so two seats never look identical.
+  if (action.a === 'setTheme') {
+    const themeId = action.theme as string;
+    if (!THEME_BY_ID[themeId]) return state;
+    if (state.themeOf[pid] === themeId) return state;
+    if (state.order.some((id) => id !== pid && state.themeOf[id] === themeId)) return state;
+    return { ...state, themeOf: { ...state.themeOf, [pid]: themeId } };
+  }
+
   // Anyone may click to pass play on — so a solo player also advances bot turns.
   if (action.a === 'proceed') {
     if (!state.awaitingProceed || !state.turnId) return state;
     const next = nextTurn(state, state.turnId);
-    return { ...state, turnId: next, mustRoll: true, die: null, awaitingProceed: false, lastEvent: `${state.players[next]?.name ?? '—'}'s turn` };
+    return pushLog({ ...state, turnId: next, mustRoll: true, die: null, guess: null, awaitingProceed: false, lastEvent: `${state.players[next]?.name ?? '—'}'s turn` });
   }
 
   if (pid !== state.turnId || state.awaitingProceed) return state;
   const name = state.players[pid]?.name ?? '—';
   const color = state.colorOf[pid];
 
+  // Guess the upcoming roll — only meaningful while every token is still penned.
+  if (action.a === 'guess') {
+    if (!state.mustRoll || !allPenned(state, pid)) return state;
+    const value = action.value as number;
+    if (!(Number.isInteger(value) && value >= 1 && value <= 6)) return state;
+    return { ...state, guess: value };
+  }
+
   // Roll the die. If nothing can move, the turn ends (click Proceed to pass on).
   if (action.a === 'roll') {
     if (!state.mustRoll) return state;
     const die = 1 + Math.floor(Math.random() * 6);
+    const penned = allPenned(state, pid);
     if (legalTokens(state, pid, die).length === 0) {
-      return { ...state, die, mustRoll: false, awaitingProceed: true, lastEvent: `${name} rolled ${die} — no move` };
+      const ev = penned
+        ? state.guess != null
+          ? `${name} guessed ${state.guess}, rolled ${die} — still penned`
+          : `${name} rolled ${die} — no escape`
+        : `${name} rolled ${die} — no move`;
+      return pushLog({ ...state, die, mustRoll: false, guess: null, awaitingProceed: true, lastEvent: ev });
     }
-    return { ...state, die, mustRoll: false, lastEvent: `${name} rolled ${die}` };
+    let ev = `${name} rolled ${die}`;
+    if (penned) {
+      ev = die === 6
+        ? `${name} rolled a 6 — a piece breaks free!`
+        : `${name} nailed the guess (${die}) — a piece escapes!`;
+    }
+    // Keep `guess` set: the move below re-checks landing() and needs it to
+    // authorise the pen escape when the guess (not a 6) matched.
+    return pushLog({ ...state, die, mustRoll: false, lastEvent: ev });
   }
 
   // Apply the rolled die to a chosen token.
@@ -240,25 +326,29 @@ function reducer(state: LudoState, pid: string, action: GameAction): LudoState {
     }
 
     if (tokens[pid].every((t) => t === FINISH)) {
-      return { ...state, tokens, status: 'gameover', winnerId: pid, turnId: null, die: null, mustRoll: true, awaitingProceed: false, lastEvent: `${name} got all tokens Home!` };
+      return pushLog({ ...state, tokens, status: 'gameover', winnerId: pid, turnId: null, die: null, mustRoll: true, guess: null, awaitingProceed: false, lastEvent: `${name} got all tokens Home!` });
     }
 
     // A 6, a capture, sending a token Home, or a wildcard bonus earns another roll.
     const again = state.die === 6 || res.captures.length > 0 || tokens[pid][tokenIdx] === FINISH || wildExtra;
-    if (again) return { ...state, tokens, die: null, mustRoll: true, awaitingProceed: false, turnId: pid, lastEvent: event };
+    if (again) return pushLog({ ...state, tokens, die: null, mustRoll: true, guess: null, awaitingProceed: false, turnId: pid, lastEvent: event });
     // Otherwise the turn is over — hold until someone clicks Proceed.
-    return { ...state, tokens, mustRoll: false, awaitingProceed: true, lastEvent: event };
+    return pushLog({ ...state, tokens, mustRoll: false, guess: null, awaitingProceed: true, lastEvent: event });
   }
 
   return state;
 }
 
 // Bot: roll when it must; otherwise pick the strongest move — capture, then
-// finish a token, then leave the pen, then advance the furthest.
+// finish a token, then leave the pen, then advance the furthest. When all four
+// are penned it takes a guess first, giving it the same escape chance a human has.
 function botMove(state: LudoState, botId: string): GameAction | null {
   if (state.status !== 'playing' || state.turnId !== botId) return null;
   if (state.awaitingProceed) return null; // a human clicks Proceed to pass play on
-  if (state.mustRoll) return { a: 'roll' };
+  if (state.mustRoll) {
+    if (allPenned(state, botId) && state.guess == null) return { a: 'guess', value: 1 + Math.floor(Math.random() * 6) };
+    return { a: 'roll' };
+  }
   if (state.die == null) return null;
   const opts = state.tokens[botId]
     .map((p, i) => ({ i, p, res: landing(state, botId, i, state.die!) }))
@@ -291,7 +381,7 @@ const START_CELL = new Map<number, Color>();
 const SLOT_AT = new Map<number, Color>(); // pen square -> colour
 (Object.keys(BASE_SLOTS) as Color[]).forEach((col) => BASE_SLOTS[col].forEach(([r, c]) => SLOT_AT.set(key(r, c), col)));
 
-function Token({ color, active, count, onClick }: { color: Color; active?: boolean; count?: number; onClick?: () => void }) {
+function Token({ fill, active, count, onClick }: { fill: string; active?: boolean; count?: number; onClick?: () => void }) {
   return (
     <button
       disabled={!active}
@@ -301,7 +391,7 @@ function Token({ color, active, count, onClick }: { color: Color; active?: boole
         'w-[85%] h-[85%] rounded-full border-2 border-white shadow-[0_1px_2px_rgba(0,0,0,0.6)] flex items-center justify-center text-[8px] font-black text-white',
         active ? 'ring-2 ring-white cursor-pointer animate-pulse' : '',
       )}
-      style={{ background: fillOf(color) }}
+      style={{ background: fill }}
     >
       {count && count > 1 ? count : ''}
     </button>
@@ -309,20 +399,36 @@ function Token({ color, active, count, onClick }: { color: Color; active?: boole
 }
 
 function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
-  const myColor = state.colorOf[myId];
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const logRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll the history to the newest entry as events arrive.
+  useEffect(() => {
+    const el = logRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [state.log?.length]);
+
   const myTurn = state.turnId === myId;
   const movable = myTurn && !state.mustRoll && state.die != null ? legalTokens(state, myId, state.die) : [];
   const activeColors = new Set(state.order.map((id) => state.colorOf[id]));
 
+  // Resolve a player's chosen theme (falling back to their seat's default).
+  const themeOf = (id: string): Theme => THEME_BY_ID[state.themeOf?.[id]] ?? DEFAULT_THEME[state.colorOf[id]];
+  // Map each seat colour to the theme of whoever holds that seat, so lanes/pens
+  // tint with the player's chosen colour rather than the classic seat colour.
+  const seatOwner: Partial<Record<Color, string>> = {};
+  state.order.forEach((id) => { seatOwner[state.colorOf[id]] = id; });
+  const themeForSeat = (c: Color): Theme => { const o = seatOwner[c]; return o ? themeOf(o) : DEFAULT_THEME[c]; };
+
   // Cell -> tokens located there.
-  const tokensAt = new Map<number, { pid: string; idx: number; color: Color }[]>();
+  const tokensAt = new Map<number, { pid: string; idx: number }[]>();
   for (const pid of state.order) {
     const color = state.colorOf[pid];
     state.tokens[pid].forEach((p, idx) => {
       const [r, c] = p === -1 ? BASE_SLOTS[color][idx] : p <= 50 ? PATH[mainAbs(color, p)] : HOME_CELLS[color][p - 51];
       const k = key(r, c);
       if (!tokensAt.has(k)) tokensAt.set(k, []);
-      tokensAt.get(k)!.push({ pid, idx, color });
+      tokensAt.get(k)!.push({ pid, idx });
     });
   }
 
@@ -343,21 +449,25 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
       // the track's start squares, each colour's home lane, and its little pen.
       let bg = '#0F1117'; // empty corner space / void
       let border = 'transparent';
-      if (startCol) { bg = tintOf(startCol, '77'); border = COLOR_HEX[startCol]; }
+      if (startCol) { const t = themeForSeat(startCol); bg = t.solid + '77'; border = t.solid; }
       else if (wild) { bg = '#2E2440'; border = '#A855F7'; }
       else if (pathIdx != null) { bg = safe ? '#2A313B' : '#1B1F27'; border = '#2E343F'; }
-      else if (homeCol) { bg = tintOf(homeCol, '3A'); border = tintOf(homeCol, '77'); }
+      else if (homeCol) { const t = themeForSeat(homeCol); bg = t.solid + '3A'; border = t.solid + '77'; }
       else if (isCenter) { bg = '#181B22'; border = '#2E343F'; }
 
       const slotActive = slotCol != null && activeColors.has(slotCol);
-      if (slotActive) { bg = tintOf(slotCol!, '4D'); border = COLOR_HEX[slotCol!]; }
+      if (slotActive) { const t = themeForSeat(slotCol!); bg = t.solid + '4D'; border = t.solid; }
 
       // Dim a colour's lane/start when that colour isn't in this game.
       const laneCol = startCol ?? homeCol;
       const dim = laneCol != null && !activeColors.has(laneCol);
 
-      const primary = here[0];
-      const active = primary != null && primary.pid === myId && movable.includes(primary.idx);
+      // Prefer showing (and making tappable) my own movable token when tokens of
+      // different colours share a cell — otherwise a piece stacked on a safe
+      // square behind an opponent's could never be tapped.
+      const movableHere = here.find((t) => t.pid === myId && movable.includes(t.idx));
+      const primary = movableHere ?? here[0];
+      const active = movableHere != null;
 
       cells.push(
         <div
@@ -373,16 +483,18 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
         >
           {wild && !primary && <span className="text-[10px] font-black text-[#C084FC] leading-none">?</span>}
           {safe && !startCol && !wild && !primary && <span className="text-[8px] text-[#5B6470] leading-none">✦</span>}
-          {slotActive && !primary && <span className="w-[62%] h-[62%] rounded-full border-2" style={{ borderColor: tintOf(slotCol!, 'AA') }} />}
-          {primary && <Token color={primary.color} active={active} count={here.length} onClick={() => active && dispatch({ a: 'move', token: primary.idx })} />}
+          {slotActive && !primary && <span className="w-[62%] h-[62%] rounded-full border-2" style={{ borderColor: themeForSeat(slotCol!).solid + 'AA' }} />}
+          {primary && <Token fill={themeOf(primary.pid).fill} active={active} count={here.length} onClick={() => active && dispatch({ a: 'move', token: primary.idx })} />}
         </div>,
       );
     }
   }
 
-  const me = state.players[myId];
   const turnPlayer = state.turnId ? state.players[state.turnId] : null;
-  const turnColor = state.turnId ? state.colorOf[state.turnId] : null;
+  const turnTheme = state.turnId ? themeOf(state.turnId) : null;
+  const myTheme = themeOf(myId);
+  const canGuess = myTurn && state.mustRoll && !state.awaitingProceed && allPenned(state, myId);
+  const history = state.log ?? [];
 
   return (
     <div className="flex flex-col items-center p-4 sm:p-6 max-w-2xl mx-auto w-full">
@@ -395,7 +507,7 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
       <div className="flex items-center gap-4 mb-4 flex-wrap justify-center">
         <div
           className="px-5 py-2 border-2 border-[#39414E] font-bold text-sm uppercase shadow-[4px_4px_0px_#454C5A] text-white"
-          style={{ background: turnColor ? fillOf(turnColor) : '#262B34' }}
+          style={{ background: turnTheme ? turnTheme.fill : '#262B34' }}
         >
           {state.awaitingProceed ? `${myTurn ? 'Your' : `${turnPlayer?.name ?? 'Opponent'}'s`} turn — done` : myTurn ? 'Your turn' : `${turnPlayer?.name ?? 'Opponent'}'s turn`}
         </div>
@@ -419,7 +531,69 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
         ) : myTurn && !state.mustRoll ? (
           <span className="text-[11px] font-mono uppercase tracking-wider text-[#9CA3AF] animate-pulse">Tap a glowing token</span>
         ) : null}
+        <button
+          onClick={() => setPickerOpen((o) => !o)}
+          className="px-4 py-2 bg-[#1A1D24] text-[#F5F6F7] font-bold uppercase tracking-widest text-xs border-2 border-[#39414E] shadow-[3px_3px_0px_#454C5A] active:translate-y-1 active:shadow-none transition-all flex items-center gap-2"
+        >
+          <span className="w-4 h-4 rounded-full border border-white/50" style={{ background: myTheme.fill }} />
+          🎨 Colour
+        </button>
       </div>
+
+      {/* Colour picker */}
+      {pickerOpen && (
+        <div className="w-full max-w-[440px] mb-4 bg-[#12151C] border-2 border-[#2E343F] p-3">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-[#8A92A0] mb-2">Choose your colour — solids, gradients & rainbow</p>
+          <div className="grid grid-cols-8 gap-2">
+            {THEMES.map((t) => {
+              const takenByOther = state.order.some((id) => id !== myId && state.themeOf[id] === t.id);
+              const mine = (state.themeOf?.[myId] ?? state.colorOf[myId]) === t.id;
+              return (
+                <button
+                  key={t.id}
+                  disabled={takenByOther}
+                  onClick={() => dispatch({ a: 'setTheme', theme: t.id })}
+                  title={takenByOther ? `${t.label} (taken)` : t.label}
+                  className={cn(
+                    'relative aspect-square rounded-full border-2 transition-transform',
+                    mine ? 'border-white ring-2 ring-white scale-110' : 'border-[#39414E]',
+                    takenByOther ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110',
+                  )}
+                  style={{ background: t.fill }}
+                >
+                  {mine && <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Guess-the-roll escape (shown only when all your pieces are penned) */}
+      {canGuess && (
+        <div className="w-full max-w-[440px] mb-4 bg-[#12151C] border-2 border-[#8338EC] p-3 text-center">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-[#C084FC] mb-2">
+            All pieces home — guess the roll to free one (a 6 always works)
+          </p>
+          <div className="flex justify-center gap-2">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <button
+                key={n}
+                onClick={() => dispatch({ a: 'guess', value: n })}
+                className={cn(
+                  'w-9 h-9 border-2 font-black font-mono text-sm transition-colors',
+                  state.guess === n ? 'border-white bg-[#8338EC] text-white' : 'border-[#39414E] text-[#9CA3AF] bg-[#1A1D24] hover:border-[#8338EC]',
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <p className="text-[9px] font-mono uppercase tracking-wider text-[#8A92A0] mt-2">
+            {state.guess ? `Guessing ${state.guess} — now roll` : 'Optional — pick a number, then roll'}
+          </p>
+        </div>
+      )}
 
       {/* The board */}
       <div className="w-full max-w-[440px] aspect-square border-2 border-[#39414E] shadow-[6px_6px_0px_#2E343F]">
@@ -431,23 +605,39 @@ function Board({ state, myId, dispatch }: BoardProps<LudoState>) {
       {/* Player legend */}
       <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
         {state.order.map((pid) => {
-          const col = state.colorOf[pid];
           const home = state.tokens[pid].filter((t) => t === FINISH).length;
           return (
             <div
               key={pid}
               className={cn('flex items-center gap-2 px-3 py-1.5 border-2 text-[11px] font-mono uppercase tracking-wider', state.turnId === pid ? 'border-white text-white' : 'border-[#39414E] text-[#9CA3AF]')}
             >
-              <span className="w-3 h-3 rounded-full border border-black/40" style={{ background: fillOf(col) }} />
+              <span className="w-3 h-3 rounded-full border border-black/40" style={{ background: themeOf(pid).fill }} />
               {pid === myId ? 'You' : state.players[pid]?.name} · {home}/4
             </div>
           );
         })}
       </div>
 
-      <p className="text-[10px] font-mono uppercase tracking-wider text-[#8A92A0] mt-3 text-center border-l-2 border-[#E63946] pl-3">
-        {state.lastEvent ?? `You are ${isRainbow(myColor) ? 'rainbow' : myColor}. Roll a 6 to release a token, capture rivals, and race home. Land on a "?" wildcard for a lucky boost or an unlucky spill!`}
-      </p>
+      {/* Scrollable event history */}
+      <div className="w-full max-w-[440px] mt-4">
+        <p className="text-[10px] font-mono uppercase tracking-widest text-[#8A92A0] mb-1">History</p>
+        <div
+          ref={logRef}
+          className="h-28 overflow-y-auto bg-[#12151C] border-2 border-[#2E343F] p-2 space-y-1"
+        >
+          {history.length === 0 ? (
+            <p className="text-[10px] font-mono uppercase tracking-wider text-[#5B6470] leading-relaxed">
+              No moves yet. Roll a 6 to release a piece, capture rivals, and race home. Land on a "?" wildcard for a lucky boost or an unlucky spill!
+            </p>
+          ) : (
+            history.map((e, i) => (
+              <p key={i} className="text-[10px] font-mono uppercase tracking-wider text-[#8A92A0] border-l-2 border-[#E63946] pl-2 leading-relaxed">
+                {e}
+              </p>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
