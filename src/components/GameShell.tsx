@@ -55,7 +55,18 @@ function OnlineGame({ def, onExit, onPlayBot }: { def: GameDefinition<any>; onEx
       ) : !state ? (
         <JoinGame gameName={def.name} tagline={def.tagline} onJoin={join} onPlayBot={def.botMove ? onPlayBot : undefined} minPlayers={def.minPlayers} maxPlayers={def.maxPlayers} />
       ) : state.status === 'waiting' ? (
-        <Lobby gameName={def.name} state={state} myId={myId} onStart={start} minPlayers={def.minPlayers} maxPlayers={def.maxPlayers} canManageBots={canManageBots} onAddBot={addBot} onRemoveBot={removeBot} />
+        <Lobby
+          gameName={def.name}
+          state={state}
+          myId={myId}
+          onStart={start}
+          minPlayers={def.minPlayers}
+          maxPlayers={def.maxPlayers}
+          canManageBots={canManageBots}
+          onAddBot={addBot}
+          onRemoveBot={removeBot}
+          extra={def.LobbyExtra ? <def.LobbyExtra state={state} myId={myId} dispatch={move} /> : undefined}
+        />
       ) : (
         // Keep the final board rendered underneath so players can see exactly
         // how the game ended; the overlay sits on top and can be dismissed.
@@ -105,9 +116,12 @@ function BotGame({ def, onExit }: { def: GameDefinition<any>; onExit: () => void
   const [count, setCount] = useState<number | null>(max > 2 ? null : 2);
   const { state, myId, error, join, start, move, rematch } = useLocalSession(def, (count ?? 2) - 1);
   const Board = def.Board;
+  const SetupPanel = def.LobbyExtra;
 
   useEffect(() => { if (count != null) join('SOLO', 'You'); }, [join, count]);
-  useEffect(() => { if (count != null && state?.status === 'waiting') start(); }, [count, state?.status, start]);
+  // Games with a setup panel pause on a setup screen so the player can lock in
+  // their choices (e.g. colour); others deal straight in.
+  useEffect(() => { if (count != null && !SetupPanel && state?.status === 'waiting') start(); }, [count, SetupPanel, state?.status, start]);
 
   if (count == null) {
     return (
@@ -119,7 +133,20 @@ function BotGame({ def, onExit }: { def: GameDefinition<any>; onExit: () => void
 
   return (
     <Chrome onExit={onExit} error={error}>
-      {!state || state.status === 'waiting' ? (
+      {state && state.status === 'waiting' && SetupPanel ? (
+        <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">
+          <div className="max-w-md w-full bg-[#1A1D24] shadow-[8px_8px_0px_#454C5A] border-2 border-[#39414E] p-8 space-y-6">
+            <h2 className="text-2xl font-bold text-center text-[#F5F6F7] tracking-tighter uppercase italic border-b-2 border-[#39414E] pb-4">{def.name}</h2>
+            <SetupPanel state={state} myId={myId} dispatch={move} />
+            <button
+              onClick={start}
+              className="w-full py-4 bg-[#E63946] hover:bg-[#D90429] active:translate-y-1 active:shadow-none transition-all text-white font-bold border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A] uppercase tracking-[0.2em]"
+            >
+              START GAME
+            </button>
+          </div>
+        </div>
+      ) : !state || state.status === 'waiting' ? (
         <div className="flex flex-col gap-6 min-h-[80vh] items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-[#39414E]" />
           <p className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Dealing you in…</p>

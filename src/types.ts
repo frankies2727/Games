@@ -47,6 +47,13 @@ export interface GameDefinition<S extends BaseState = BaseState> {
   reducer: (state: S, playerId: string, action: GameAction) => S;
   Board: ComponentType<BoardProps<S>>;
   /**
+   * Optional pre-game setup panel rendered in the lobby (online) and on the
+   * solo setup screen, before `start`. Lets players lock in choices — e.g. their
+   * token colour — while `status` is still `'waiting'`. Receives the same props
+   * as the board, so it can read state and `dispatch` waiting-phase actions.
+   */
+  LobbyExtra?: ComponentType<BoardProps<S>>;
+  /**
    * Optional bot policy. Given the state as the bot sees it (post-`redact`) and
    * the bot's player id, return the action it wants to take, or `null` if it's
    * not the bot's move. Games that define this get a "Play vs Computer" option.

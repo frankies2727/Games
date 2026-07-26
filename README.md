@@ -28,12 +28,13 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
   your colour's home column into the centre; first to get all four tokens home
   wins. Rolling a 6 — or capturing / finishing a token — earns another roll. Solo
   play lets you pick 2–4 players (you plus bots); online, up to four share a room
-  code and the host starts once everyone's in. Tap the **🎨 Colour** button to
-  recolour your pieces from a wide palette of solids, gradients, and a full
-  **rainbow** (each colour can only be claimed by one player). When **all four**
-  of your pieces are stuck in the pen, **guess the die** before you roll — land
-  the guess (or roll a 6) and one piece breaks free. A **scrollable history**
-  under the board tracks every roll, move, capture, and wildcard.
+  code and the host starts once everyone's in. Before Start, each player **picks
+  their colour** in the lobby (solo play gets a setup screen) from a wide palette
+  of solids, gradients, and a full **rainbow** — one colour per player, locked in
+  once the game begins. When **all four** of your pieces are stuck in the pen,
+  **guess the die** before you roll — land the guess (or roll a 6) and one piece
+  breaks free. A **scrollable history** under the board tracks every roll, move,
+  capture, and wildcard.
 - **Uno Frenzy!** — Uno's colour/number matching plus a deck of chaos: **Swap**
   trades entire hands, **Steal** yanks cards from your rival, and **Frenzy** buries
   them under six. Classic Skip / Reverse / +2 / Wild / +4 included. Empty your hand
