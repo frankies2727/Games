@@ -1,14 +1,31 @@
 import { GameDefinition } from '../types';
+import { PikachuIcon } from './PikachuIcon';
 
 interface GalleryProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   games: GameDefinition<any>[];
   onSelect: (id: string) => void;
+  onOpenProjects: () => void;
 }
 
-export function Gallery({ games, onSelect }: GalleryProps) {
+export function Gallery({ games, onSelect, onOpenProjects }: GalleryProps) {
   return (
     <div className="min-h-screen bg-[#0F1117] text-[#E2E4E8] font-sans selection:bg-[#262B34] px-4 py-12 sm:py-20">
+      {/* Mini Pikachu portal → Frankie's personal projects gallery. */}
+      <button
+        onClick={onOpenProjects}
+        title="Peek at my projects"
+        aria-label="Open Frankie's projects"
+        className="group fixed top-4 right-4 z-50 flex items-center gap-2 rounded-full border-2 border-[#39414E] bg-[#1A1D24]/90 backdrop-blur-md pl-1.5 pr-1.5 sm:pr-3 py-1.5 shadow-[3px_3px_0px_#454C5A] hover:shadow-[1px_1px_0px_#454C5A] hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+      >
+        <span className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 drop-shadow-[0_0_6px_rgba(247,208,44,0.5)] group-hover:animate-bounce">
+          <PikachuIcon className="w-full h-full" />
+        </span>
+        <span className="hidden sm:inline text-[10px] font-mono font-bold uppercase tracking-widest text-[#F5F6F7]">
+          My Projects
+        </span>
+      </button>
+
       <div className="max-w-4xl mx-auto">
         <header className="text-center mb-12 sm:mb-16">
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tighter uppercase italic text-[#F5F6F7] flex items-center justify-center flex-wrap gap-x-3">

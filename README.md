@@ -62,6 +62,19 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
 
+## ⚡ Projects portal
+
+Tap the **mini Pikachu** in the top-right of the home screen to jump into
+**Frankie's Projects** — a little gallery of other things I'm building. First up
+is **VibeCheck**: type any company (or tap a trending brand) to generate an
+immersive, scrollable visual story — finances, timeline, origin lore, cultural
+impact, and AI-generated art for each scene. Its generator uses the Gemini API
+(`GEMINI_API_KEY`); without a key the app still loads and just asks for one.
+
+Each project is a self-contained component under `src/projects/` registered in
+`src/projects/index.ts`, and is **lazy-loaded** so opening the games home screen
+never downloads a project's (heavier) code until you actually open it.
+
 Every game is fully **peer-to-peer**: the two browsers connect directly via WebRTC
 (using [PeerJS](https://peerjs.com) for the initial handshake), so there's no
 backend server to run or pay for. That's what lets it live on GitHub Pages.

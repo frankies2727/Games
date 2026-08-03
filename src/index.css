@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Let `dark:` utilities respond to a `.dark` ancestor class (used by the
+   VibeCheck project's light/dark toggle) rather than only the OS preference.
+   The games themselves don't use `dark:` variants, so this is inert for them. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-brand-bg: #0F1117;
   --color-brand-text: #E2E4E8;
@@ -30,4 +35,32 @@ body {
 }
 .animate-flash-line {
   animation: flash-line 0.8s ease-in-out infinite;
+}
+
+/* --- VibeCheck project utilities --- */
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 8s ease infinite;
+  }
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
