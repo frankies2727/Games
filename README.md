@@ -68,9 +68,18 @@ Tap the **mini Pikachu** in the top-right of the home screen to jump into
 **Frankie's Projects** — a little gallery of other things I'm building. First up
 is **VibeCheck**: type any company (or tap a trending brand) to generate an
 immersive, scrollable visual story — the rundown, fast facts, a timeline, and
-fun facts. It pulls live data straight from **Wikipedia's public API** (search +
-article summary + infobox), so there's **no API key** and nothing to configure —
-it just works on the static site.
+fun facts. It has two data sources, both key-free:
+
+- **Wikipedia** (default) — real data from Wikipedia's public API (search +
+  article summary + infobox). Works for everyone on the static site; niche or
+  private companies may not have an article.
+- **Ollama · local** — for companies Wikipedia can't cover, generate with a local
+  model like Google's Gemma. If an Ollama server is detected at
+  `localhost:11434`, VibeCheck offers it as a source and defaults to it. It runs
+  only on machines that have Ollama, and answers come from the model's memory
+  (labeled in-app as "a vibe read, not a fact sheet"). To use it, run
+  `ollama pull gemma3` and start Ollama with `OLLAMA_ORIGINS='*' ollama serve`
+  so the page is allowed to call it.
 
 Each project is a self-contained component under `src/projects/` registered in
 `src/projects/index.ts`, and is **lazy-loaded** so opening the games home screen
