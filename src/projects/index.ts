@@ -8,6 +8,12 @@ const VibeCheck = lazy(() =>
   import('./vibecheck/VibeCheck').then((m) => ({ default: m.VibeCheck })),
 );
 
+const StreetViewTimelapse = lazy(() =>
+  import('./streetview/StreetViewTimelapse').then((m) => ({
+    default: m.StreetViewTimelapse,
+  })),
+);
+
 // Frankie's personal projects — awesome things being built, one card each.
 // VibeCheck is the first; add more here as they ship.
 export const PROJECTS: ProjectDefinition[] = [
@@ -21,6 +27,17 @@ export const PROJECTS: ProjectDefinition[] = [
     gradient: 'from-[#ccff00] via-[#8fae00] to-[#0a0a0a]',
     status: 'Live',
     Component: VibeCheck,
+  },
+  {
+    id: 'streetview-timelapse',
+    name: 'Street View Timelapse',
+    tagline: 'Watch any place change through the years.',
+    description:
+      'Search any address or place and play a timelapse of its Google Street View history — scrub the year-by-year timeline of your memorable spots or anywhere in the world. Bring your own Google Maps key.',
+    emoji: '🕰️',
+    gradient: 'from-[#10b981] via-[#0f766e] to-[#0a0a0a]',
+    status: 'Live',
+    Component: StreetViewTimelapse,
   },
 ];
 
