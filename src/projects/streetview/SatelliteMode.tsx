@@ -10,14 +10,25 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-// NASA GIBS MODIS Terra true-colour daily imagery. Public, no API key, and
-// served with `Access-Control-Allow-Origin: *`, so tiles can be drawn to a
-// canvas without tainting it — which is what makes the client-side video
-// export below actually work.
+// NASA GIBS daily true-colour imagery. Public, no API key, and served with
+// `Access-Control-Allow-Origin: *`, so tiles can be drawn to a canvas without
+// tainting it — which is what makes the client-side video export below work.
+//
+// Best of both sources: the newer VIIRS sensor has a wider swath (far fewer
+// black no-data gaps), but its imagery only goes back to late 2015. So we use
+// VIIRS for recent years and fall back to MODIS Terra (available from 2000)
+// for older ones. Both share the same EPSG:4326 250m tile grid.
 const ZOOM = 6; // ~one tile spanning a wide region, matching the reference.
 const TILE = 512;
-const GIBS = (date: string, row: number, col: number) =>
-  `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${date}/250m/${ZOOM}/${row}/${col}.jpg`;
+const VIIRS_FROM_YEAR = 2016;
+const layerForYear = (yr: number) =>
+  yr >= VIIRS_FROM_YEAR
+    ? 'VIIRS_SNPP_CorrectedReflectance_TrueColor'
+    : 'MODIS_Terra_CorrectedReflectance_TrueColor';
+const sourceLabel = (yr: number) =>
+  yr >= VIIRS_FROM_YEAR ? 'VIIRS' : 'MODIS Terra';
+const GIBS = (layer: string, date: string, row: number, col: number) =>
+  `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/${layer}/default/${date}/250m/${ZOOM}/${row}/${col}.jpg`;
 
 // EPSG:4326 tile grid math (ported from the reference notebook).
 const tileWidthDeg = 288.0 / 2 ** ZOOM;
@@ -171,9 +182,13 @@ export function SatelliteMode() {
       const ratio = getPinRatio(lat, lon, row, col);
       const label = [hit.name, hit.country_code].filter(Boolean).join(', ');
 
-      // 2. Fetch tiles for the year.
+      // 2. Fetch tiles for the year (VIIRS for recent years, MODIS Terra for
+      // older ones).
+      const layer = layerForYear(year);
       const dates = buildDates(year, step);
-      setProgressMsg(`Downloading ${dates.length} satellite frames…`);
+      setProgressMsg(
+        `Downloading ${dates.length} ${sourceLabel(year)} frames…`,
+      );
 
       const loaded: Frame[] = [];
       let done = 0;
@@ -182,7 +197,7 @@ export function SatelliteMode() {
         if (cancelRef.current) return;
         const batch = dates.slice(i, i + CONCURRENCY);
         const results = await Promise.all(
-          batch.map((d) => loadTile(GIBS(d, row, col), d)),
+          batch.map((d) => loadTile(GIBS(layer, d, row, col), d)),
         );
         results.forEach((r) => r && loaded.push(r));
         done += batch.length;
@@ -387,8 +402,10 @@ export function SatelliteMode() {
               </button>
             ))}
           </div>
-          <span className="text-neutral-600 hidden sm:inline">
-            Daily is slower — many frames to download.
+          <span className="ml-auto text-neutral-500 hidden sm:inline">
+            Source:{' '}
+            <span className="text-neutral-300">{sourceLabel(year)}</span>{' '}
+            {year >= VIIRS_FROM_YEAR ? '(cleaner, 2016+)' : '(back to 2000)'}
           </span>
         </div>
       </header>
