@@ -39,13 +39,37 @@ function looksLikeCompany(summary: any): boolean {
   return /(compan|brand|corporation|manufactur|service|retailer|maker|startup|firm|conglomerate|drink|platform|studio|label|publisher|airline|bank|software|\bapp\b|games?|streaming|technology|automaker|enterprise)/i.test(d);
 }
 
+// Generic corporate/legal words that don't identify a specific entity, so they
+// shouldn't count toward whether an article actually matches the query.
+const GENERIC_TOKENS = new Set([
+  'vc', 'inc', 'llc', 'ltd', 'corp', 'corporation', 'company', 'co', 'ventures',
+  'venture', 'capital', 'partners', 'group', 'holdings', 'the', 'and', 'of',
+  'plc', 'limited', 'sa', 'ag', 'gmbh',
+]);
+
+const normalizeText = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+// Does the resolved article actually correspond to the query? Wikipedia's search
+// always returns *something*, so for a niche company with no article it hands
+// back an unrelated page. We reject the match unless a distinctive (non-generic)
+// word from the query shows up in the article title.
+function isRelevantMatch(query: string, title: string): boolean {
+  const nt = normalizeText(title);
+  const titleTokens = new Set(nt.split(' ').filter(Boolean));
+  const queryTokens = normalizeText(query).split(' ').filter(Boolean);
+  let distinctive = queryTokens.filter((t) => t.length >= 2 && !GENERIC_TOKENS.has(t));
+  if (distinctive.length === 0) distinctive = queryTokens;
+  return distinctive.some((t) => titleTokens.has(t) || nt.includes(t));
+}
+
 // Resolve a free-text query to the best company/brand article. Wikipedia's top
 // hit is sometimes a disambiguation page or the wrong same-named entity, so if
 // the first result doesn't look like a company we retry biased with "company".
+// Returns { notFound: true } when no result actually matches the query.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function resolveEntity(query: string): Promise<{ title: string; summary: any } | null> {
+async function resolveEntity(query: string): Promise<{ title: string; summary: any } | { notFound: true } | null> {
   let title = await wikiSearchTitle(query);
-  if (!title) return null;
+  if (!title) return { notFound: true };
   let summary = await wikiSummary(title).catch(() => null);
   if (!summary || summary.type === 'disambiguation' || !looksLikeCompany(summary)) {
     const altTitle = await wikiSearchTitle(`${query} company`);
@@ -58,6 +82,9 @@ async function resolveEntity(query: string): Promise<{ title: string; summary: a
       }
     }
   }
+  // Final safety net: if the best match doesn't relate to the query, it's a
+  // Wikipedia miss (too niche / private / misspelled) rather than a real hit.
+  if (!isRelevantMatch(query, title)) return { notFound: true };
   return { title, summary };
 }
 
@@ -375,8 +402,10 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
 
     try {
       const resolved = await resolveEntity(searchQuery);
-      if (!resolved) {
-        setError("Couldn't find that one on the web. Try another name.");
+      if (!resolved || 'notFound' in resolved) {
+        setError(
+          `No solid match for "${searchQuery}". VibeCheck reads from Wikipedia, so very new, private, or niche companies may not be covered yet — try a more established name or double-check the spelling.`,
+        );
         setLoading(false);
         return;
       }
