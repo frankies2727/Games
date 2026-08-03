@@ -472,6 +472,13 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     }
   };
 
+  // Browsers block an https:// page from calling http://localhost, so the local
+  // Ollama source can't work from the published (https) site — only when the app
+  // itself is run locally over http. Detect that so we can explain it clearly.
+  const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const ollamaIsLocalHttp = /^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(ollamaUrl);
+  const ollamaBlockedByHttps = isHttpsPage && ollamaIsLocalHttp;
+
   const handleSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) return;
     setQuery(searchQuery);
@@ -496,8 +503,10 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       } catch (err) {
         console.error(err);
         const reason = err instanceof Error ? err.message : '';
-        if (reason === 'unreachable') {
-          setError(`Can't reach Ollama at ${ollamaUrl}. Start it (\`ollama serve\`) and make sure "${ollamaModel}" is pulled (\`ollama pull ${ollamaModel}\`). If it's running, allow this page's origin via OLLAMA_ORIGINS.`);
+        if (reason === 'unreachable' && ollamaBlockedByHttps) {
+          setError(`This is the published (https) site, and browsers block it from reaching a local Ollama at ${ollamaUrl}. Ollama only works when you run VibeCheck locally (npm run dev, an http://localhost page). On the live site, use the Wikipedia source.`);
+        } else if (reason === 'unreachable') {
+          setError(`Can't reach Ollama at ${ollamaUrl}. Start it (\`ollama serve\`) and make sure "${ollamaModel}" is pulled (\`ollama pull ${ollamaModel}\`). If it's running, allow this page's origin via OLLAMA_ORIGINS (or, on a Mac app: launchctl setenv OLLAMA_ORIGINS "*", then restart Ollama).`);
         } else if (reason === 'model-missing') {
           setError(`Ollama is up but the model "${ollamaModel}" isn't installed. Run \`ollama pull ${ollamaModel}\`, then try again.`);
         } else {
@@ -875,7 +884,9 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
                         />
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-500 text-center">
-                        {ollamaUp === false
+                        {ollamaBlockedByHttps
+                          ? <>⚠️ This is the published (https) site — browsers block it from reaching your local Ollama. Run VibeCheck locally (<code className="text-[#ccff00]">npm run dev</code>) to use it.</>
+                          : ollamaUp === false
                           ? <>No Ollama detected. Run <code className="text-[#ccff00]">ollama run {ollamaModel || 'gemma3'}</code> locally. Generated from the model's memory — vibes, not live facts.</>
                           : <>Generated locally by your model — no key, no web. It answers from memory, so double-check the details.</>}
                       </p>
