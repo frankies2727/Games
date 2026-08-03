@@ -447,13 +447,30 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Always open VibeCheck on the search home. Drop any stale ?q left in the URL
+  // by a previous visit so it doesn't auto-reload the last company.
   useEffect(() => {
-    const initQuery = new URLSearchParams(window.location.search).get('q');
-    if (initQuery) {
-      setQuery(initQuery);
-      handleSearch(initQuery);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('q')) {
+      url.searchParams.delete('q');
+      window.history.replaceState({}, '', url.toString());
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Return to the empty search screen (used by the logo and after clearing).
+  const resetToHome = () => {
+    setData(null);
+    setError(null);
+    setLoading(false);
+    setQuery('');
+    setImage(undefined);
+    setCurrentSlideIndex(0);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('q')) {
+      url.searchParams.delete('q');
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
 
   const handleSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) return;
@@ -738,8 +755,15 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <Zap className="w-8 h-8 text-[#ccff00]" />
-              <h1 className="text-2xl font-bold tracking-tighter uppercase text-gray-900 dark:text-white drop-shadow-md hidden sm:block">VibeCheck</h1>
+              <button
+                onClick={resetToHome}
+                className="flex items-center gap-2 group shrink-0"
+                title="Back to search — check another company"
+                type="button"
+              >
+                <Zap className="w-8 h-8 text-[#ccff00] group-hover:scale-110 transition-transform" />
+                <h1 className="text-2xl font-bold tracking-tighter uppercase text-gray-900 dark:text-white drop-shadow-md hidden sm:block group-hover:text-[#ccff00] transition-colors">VibeCheck</h1>
+              </button>
               {data && (
                 <>
                   <span className="text-gray-300 dark:text-gray-700 mx-2 hidden sm:block">/</span>
