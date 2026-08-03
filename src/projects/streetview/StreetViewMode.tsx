@@ -10,7 +10,6 @@ import {
   MapPin,
   Video,
   Download,
-  ArrowLeft,
   KeyRound,
   ExternalLink,
 } from 'lucide-react';
@@ -54,7 +53,7 @@ const streetViewUrl = (pano: string, heading: number, key: string) =>
     heading,
   )}&pitch=0&key=${key}`;
 
-export function StreetViewTimelapse({ onExit }: { onExit: () => void }) {
+export function StreetViewMode() {
   const [apiKey, setApiKey] = useState<string>(() => readStoredKey());
   const [keyInput, setKeyInput] = useState('');
 
@@ -604,19 +603,8 @@ export function StreetViewTimelapse({ onExit }: { onExit: () => void }) {
   // ---- Key-entry gate -------------------------------------------------------
   if (!apiKey) {
     return (
-      <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans flex flex-col">
-        <div className="p-4 md:p-6">
-          <button
-            onClick={onExit}
-            title="Back to projects"
-            className="group inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-widest text-neutral-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            Back to projects
-          </button>
-        </div>
-
-        <div className="flex-1 flex items-center justify-center px-4 pb-16">
+      <div className="h-full bg-neutral-950 text-neutral-100 font-sans flex flex-col">
+        <div className="flex-1 flex items-center justify-center px-4 py-10 overflow-y-auto">
           <div className="max-w-md w-full space-y-6">
             <div className="text-center space-y-3">
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30">
@@ -677,24 +665,15 @@ export function StreetViewTimelapse({ onExit }: { onExit: () => void }) {
 
   // ---- Main app -------------------------------------------------------------
   return (
-    <div className="flex flex-col h-screen bg-neutral-950 text-neutral-100 font-sans">
+    <div className="flex flex-col h-full bg-neutral-950 text-neutral-100 font-sans">
       {/* Header */}
-      <header className="flex-none p-4 md:p-6 pb-2 md:pb-4 border-b border-neutral-800 bg-neutral-900/50">
+      <header className="flex-none p-4 md:px-6 md:py-4 border-b border-neutral-800 bg-neutral-900/50">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onExit}
-              title="Back to projects"
-              className="group inline-flex items-center justify-center w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="flex items-center gap-2">
-              <Clock className="w-6 h-6 text-emerald-400" />
-              <h1 className="text-xl font-medium tracking-tight text-white">
-                Street View Timelapse
-              </h1>
-            </div>
+          <div className="flex items-center gap-2">
+            <Clock className="w-6 h-6 text-emerald-400" />
+            <h1 className="text-xl font-medium tracking-tight text-white">
+              Street View
+            </h1>
           </div>
 
           <form onSubmit={handleSearch} className="flex-1 max-w-2xl flex gap-2">
