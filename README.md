@@ -66,20 +66,21 @@ When a game ends, the final board stays on screen behind the result panel — hi
 
 Tap the **mini Pikachu** in the top-right of the home screen to jump into
 **Frankie's Projects** — a little gallery of other things I'm building. First up
-is **VibeCheck**: type any company (or tap a trending brand) to generate an
+is **VibeCheck**: type any company (or tap a featured profile) to generate an
 immersive, scrollable visual story — the rundown, fast facts, a timeline, and
-fun facts. It has two data sources, both key-free:
+fun facts. Two key-free data sources, both working for every visitor:
 
-- **Wikipedia** (default) — real data from Wikipedia's public API (search +
-  article summary + infobox). Works for everyone on the static site; niche or
-  private companies may not have an article.
-- **Ollama · local** — for companies Wikipedia can't cover, generate with a local
-  model like Google's Gemma. If an Ollama server is detected at
-  `localhost:11434`, VibeCheck offers it as a source and defaults to it. It runs
-  only on machines that have Ollama, and answers come from the model's memory
-  (labeled in-app as "a vibe read, not a fact sheet"). To use it, run
-  `ollama pull gemma3` and start Ollama with `OLLAMA_ORIGINS='*' ollama serve`
-  so the page is allowed to call it.
+- **Wikipedia** (fallback) — real data from Wikipedia's public API (search +
+  article summary + infobox). Great for established brands; niche or private
+  companies may not have an article.
+- **Featured profiles** — for companies Wikipedia can't cover (small VC firms,
+  private startups), profiles are **pre-generated offline** by a GitHub Action
+  running Ollama + Gemma, grounded from the web, and committed as JSON under
+  `src/projects/vibecheck/data/`. The static site reads those, so they resolve
+  instantly for everyone — no live model, no key, no server. See
+  [docs/VIBECHECK_FEATURED.md](docs/VIBECHECK_FEATURED.md) to run/extend it.
+
+On search, a matching featured profile wins; otherwise it falls back to Wikipedia.
 
 Each project is a self-contained component under `src/projects/` registered in
 `src/projects/index.ts`, and is **lazy-loaded** so opening the games home screen

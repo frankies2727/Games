@@ -1,0 +1,27 @@
+{
+  "name": "Chingona Ventures",
+  "slug": "chingona-ventures",
+  "sector": "Venture Capital",
+  "gradient": "from-fuchsia-600 via-purple-700 to-slate-900",
+  "tagline": "First checks for fearless, overlooked founders",
+  "rundown": "Chingona Ventures is an early-stage venture capital firm that writes first checks into founders building in large, fast-growing but overlooked markets — fintech, the future of work, healthcare, and the Latino economy among them. It's known for backing scrappy, mission-driven teams that traditional VCs often pass on.",
+  "founded": "2019",
+  "industry": "Venture capital",
+  "headquarters": "Chicago, Illinois, USA",
+  "founders": ["Samara Mejia Hernandez"],
+  "timeline": [
+    { "year": "2019", "event": "Samara Mejia Hernandez founds Chingona Ventures to back overlooked, early-stage founders." },
+    { "year": "2022", "event": "The firm raises a substantially larger second fund to widen its pre-seed and seed investing." }
+  ],
+  "notableFacts": [
+    "\"Chingona\" is Spanish slang for a bold, badass woman — the firm leans into backing gutsy founders.",
+    "It typically writes first checks at the pre-seed and seed stage.",
+    "Its focus areas include fintech, the future of work, healthcare, and the Latino economy."
+  ],
+  "website": "chingona.ventures",
+  "sources": [
+    { "title": "Chingona Ventures — official site", "url": "https://www.chingona.ventures/" }
+  ],
+  "generatedBy": "seed",
+  "updated": "2026-08-03"
+}

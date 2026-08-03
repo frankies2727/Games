@@ -1,0 +1,27 @@
+{
+  "name": "Liquid Death",
+  "slug": "liquid-death",
+  "sector": "Beverage",
+  "gradient": "from-zinc-800 via-zinc-900 to-black",
+  "tagline": "Murder your thirst",
+  "rundown": "Liquid Death is a canned water and iced-tea brand that markets healthy hydration with heavy-metal, horror-movie irreverence. By selling plain water in tallboy cans that look like beer, it turned a boring category into a viral lifestyle brand.",
+  "founded": "2019, Los Angeles",
+  "industry": "Beverages",
+  "headquarters": "Los Angeles, California, USA",
+  "founders": ["Mike Cessario"],
+  "timeline": [
+    { "year": "2019", "event": "Former ad creative Mike Cessario launches Liquid Death, selling water in tallboy cans." },
+    { "year": "2024", "event": "Rides viral marketing to a valuation above a billion dollars." }
+  ],
+  "notableFacts": [
+    "It sells still and sparkling water in 'tallboy' cans designed to look like beer.",
+    "Its tagline is \"Murder Your Thirst,\" and the brand leans into heavy-metal and horror aesthetics.",
+    "It ties its marketing to fighting single-use plastic pollution."
+  ],
+  "website": "liquiddeath.com",
+  "sources": [
+    { "title": "Liquid Death — official site", "url": "https://liquiddeath.com/" }
+  ],
+  "generatedBy": "seed",
+  "updated": "2026-08-03"
+}

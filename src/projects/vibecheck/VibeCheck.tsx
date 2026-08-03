@@ -3,13 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Search, Zap, Sun, Moon, BookOpen, Building2, Calendar, Sparkles, AlertCircle, Share2, Download, Loader2, ArrowLeft, ExternalLink } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { toPng } from 'html-to-image';
-import {
-  checkOllama,
-  generateProfile,
-  DEFAULT_OLLAMA_URL,
-  DEFAULT_OLLAMA_MODEL,
-  type OllamaProfile,
-} from './ollama';
 
 // ---------------------------------------------------------------------------
 // VibeCheck runs entirely against Wikipedia's public, key-free, CORS-enabled
@@ -246,9 +239,77 @@ type CompanyData = {
   facts: Fact[];
   timeline: { year: string; event: string }[];
   nuggets: string[];
-  /** Where this profile came from, so the UI can label AI-generated content. */
-  source: 'wikipedia' | 'ollama';
+  /** Where this profile came from, so the UI can label the content. */
+  source: 'wikipedia' | 'featured';
+  /** Web pages a pre-generated (featured) profile was grounded in, if any. */
+  sources?: { title: string; url: string }[];
 };
+
+// A pre-generated ("featured") company profile, produced by the offline
+// GitHub Action (Ollama + Gemma, grounded from the web) and committed as JSON
+// under ./data. Loaded at build time so niche companies Wikipedia can't cover
+// still resolve instantly for every visitor — no live model, no key, no server.
+type FeaturedProfile = {
+  name: string;
+  slug: string;
+  sector?: string;
+  gradient?: string;
+  tagline?: string;
+  rundown?: string;
+  founded?: string;
+  industry?: string;
+  headquarters?: string;
+  founders?: string[];
+  timeline?: { year: string; event: string }[];
+  notableFacts?: string[];
+  website?: string;
+  sources?: { title: string; url: string }[];
+  generatedBy?: string;
+  updated?: string;
+};
+
+// Card gradients cycled through for featured profiles that don't specify one.
+const FEATURED_GRADIENTS = [
+  'from-[#635BFF] via-[#4b45c6] to-[#0a2540]',
+  'from-orange-500 via-red-600 to-stone-800',
+  'from-[#58CC02] via-[#46A302] to-[#2b6301]',
+  'from-zinc-800 via-zinc-900 to-black',
+  'from-teal-500 via-emerald-600 to-green-900',
+  'from-blue-600 via-indigo-700 to-purple-900',
+  'from-amber-600 via-yellow-700 to-yellow-900',
+  'from-[#1DB954] via-[#1aa34a] to-[#121212]',
+];
+
+// Eagerly import every committed profile JSON. Vite inlines these at build time
+// and rewrites paths for the /Games/ base, so the deploy always ships whatever
+// the Action has committed.
+const FEATURED: FeaturedProfile[] = Object.values(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (import.meta as any).glob('./data/*.json', { eager: true }) as Record<string, { default: FeaturedProfile }>,
+)
+  .map((m) => m.default)
+  .filter((p) => p && p.name)
+  .map((p, i) => ({ ...p, gradient: p.gradient || FEATURED_GRADIENTS[i % FEATURED_GRADIENTS.length] }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+// Match a free-text query to a featured profile (e.g. "chingona ventures vc" ->
+// the Chingona Ventures profile). Compares on the profile's name and slug after
+// dropping generic corporate words.
+function findFeatured(query: string): FeaturedProfile | undefined {
+  const nq = normalizeText(query);
+  const nqTokens = nq.split(' ').filter((t) => !GENERIC_TOKENS.has(t));
+  const nqTrimmed = nqTokens.join(' ');
+  const compact = (s: string) => s.replace(/\s+/g, '');
+  return FEATURED.find((p) => {
+    const nn = normalizeText(p.name);
+    const slug = normalizeText(p.slug || '').replace(/-/g, ' ');
+    if (!nn) return false;
+    if (nq === nn || nq === slug) return true;
+    if (compact(nq) === compact(nn) || compact(nqTrimmed) === compact(nn)) return true;
+    if (nqTrimmed && (nqTrimmed.includes(nn) || nn.includes(nqTrimmed))) return true;
+    return false;
+  });
+}
 
 function splitSentences(text: string): string[] {
   return text
@@ -364,11 +425,11 @@ function buildCompanyData(
   };
 }
 
-// Map a locally-generated (Ollama/Gemma) profile onto the same shape the slides
-// consume, so the whole immersive UI is reused regardless of data source.
-function buildFromOllama(p: OllamaProfile): CompanyData {
+// Map a pre-generated featured profile onto the same shape the slides consume,
+// so the whole immersive UI is reused regardless of data source.
+function buildFromFeatured(p: FeaturedProfile): CompanyData {
   const facts: Fact[] = [];
-  const push = (label: string, value: string) => {
+  const push = (label: string, value?: string) => {
     if (value && value.length < 120) facts.push({ label, value });
   };
   push('Founded', p.founded);
@@ -377,32 +438,20 @@ function buildFromOllama(p: OllamaProfile): CompanyData {
 
   return {
     name: p.name,
-    description: p.tagline,
-    summary: p.rundown,
+    description: p.tagline || '',
+    summary: p.rundown || '',
     wikiUrl: null,
     website: p.website || null,
-    founders: p.founders,
+    founders: Array.isArray(p.founders) ? p.founders : [],
     facts,
-    timeline: [...p.timeline].sort((a, b) => (+a.year || 0) - (+b.year || 0)).slice(0, 6),
-    nuggets: p.notableFacts,
-    source: 'ollama',
+    timeline: Array.isArray(p.timeline)
+      ? [...p.timeline].sort((a, b) => (+a.year || 0) - (+b.year || 0)).slice(0, 6)
+      : [],
+    nuggets: Array.isArray(p.notableFacts) ? p.notableFacts : [],
+    source: 'featured',
+    sources: Array.isArray(p.sources) ? p.sources.filter((s) => s && s.url).slice(0, 5) : undefined,
   };
 }
-
-const PREPOPULATED_COMPANIES = [
-  { name: 'Nvidia', sector: 'Tech & AI', color: 'from-[#76b900] via-[#5a8f00] to-[#005c00]' },
-  { name: 'A24', sector: 'Entertainment', color: 'from-gray-700 via-gray-900 to-black' },
-  { name: 'Patagonia', sector: 'Apparel', color: 'from-orange-500 via-red-600 to-stone-800' },
-  { name: 'SpaceX', sector: 'Aerospace', color: 'from-slate-600 via-slate-800 to-black' },
-  { name: 'Spotify', sector: 'Audio', color: 'from-[#1DB954] via-[#1aa34a] to-[#121212]' },
-  { name: 'Stripe', sector: 'Fintech', color: 'from-[#635BFF] via-[#4b45c6] to-[#0a2540]' },
-  { name: 'Duolingo', sector: 'EdTech', color: 'from-[#58CC02] via-[#46A302] to-[#2b6301]' },
-  { name: 'LVMH', sector: 'Luxury', color: 'from-amber-600 via-yellow-700 to-yellow-900' },
-  { name: 'OpenAI', sector: 'AI Research', color: 'from-teal-500 via-emerald-600 to-green-900' },
-  { name: 'Epic Games', sector: 'Gaming', color: 'from-blue-600 via-indigo-700 to-purple-900' },
-  { name: 'Red Bull', sector: 'Energy', color: 'from-blue-500 via-red-500 to-yellow-500' },
-  { name: 'Liquid Death', sector: 'Beverage', color: 'from-zinc-800 via-zinc-900 to-black' },
-];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Slide = any;
@@ -417,35 +466,6 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-
-  // Data source: Wikipedia (real, key-free, works everywhere) or a local
-  // Ollama/Gemma model (generated, works only where Ollama runs).
-  const [source, setSource] = useState<'wikipedia' | 'ollama'>('wikipedia');
-  const [ollamaUp, setOllamaUp] = useState<boolean | null>(null);
-  const [ollamaUrl, setOllamaUrl] = useState(() => localStorage.getItem('vc_ollama_url') || DEFAULT_OLLAMA_URL);
-  const [ollamaModel, setOllamaModel] = useState(() => localStorage.getItem('vc_ollama_model') || DEFAULT_OLLAMA_MODEL);
-
-  useEffect(() => {
-    localStorage.setItem('vc_ollama_url', ollamaUrl);
-  }, [ollamaUrl]);
-  useEffect(() => {
-    localStorage.setItem('vc_ollama_model', ollamaModel);
-  }, [ollamaModel]);
-
-  // On mount, probe for a local Ollama server. If one is running, default to it
-  // (the user asked for local Gemma); otherwise stay on Wikipedia so the public
-  // site still works for visitors without Ollama.
-  useEffect(() => {
-    let cancelled = false;
-    checkOllama(ollamaUrl).then((up) => {
-      if (cancelled) return;
-      setOllamaUp(up);
-      if (up) setSource('ollama');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Always open VibeCheck on the search home. Drop any stale ?q left in the URL
   // by a previous visit so it doesn't auto-reload the last company.
@@ -472,13 +492,6 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     }
   };
 
-  // Browsers block an https:// page from calling http://localhost, so the local
-  // Ollama source can't work from the published (https) site — only when the app
-  // itself is run locally over http. Detect that so we can explain it clearly.
-  const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
-  const ollamaIsLocalHttp = /^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(ollamaUrl);
-  const ollamaBlockedByHttps = isHttpsPage && ollamaIsLocalHttp;
-
   const handleSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) return;
     setQuery(searchQuery);
@@ -494,27 +507,14 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       window.history.pushState({}, '', url.toString());
     };
 
-    if (source === 'ollama') {
-      try {
-        const profile = await generateProfile(ollamaUrl, ollamaModel, searchQuery);
-        pushUrl();
-        setData(buildFromOllama(profile));
-        setImage(null); // text model → no photo, use the gradient scene
-      } catch (err) {
-        console.error(err);
-        const reason = err instanceof Error ? err.message : '';
-        if (reason === 'unreachable' && ollamaBlockedByHttps) {
-          setError(`This is the published (https) site, and browsers block it from reaching a local Ollama at ${ollamaUrl}. Ollama only works when you run VibeCheck locally (npm run dev, an http://localhost page). On the live site, use the Wikipedia source.`);
-        } else if (reason === 'unreachable') {
-          setError(`Can't reach Ollama at ${ollamaUrl}. Start it (\`ollama serve\`) and make sure "${ollamaModel}" is pulled (\`ollama pull ${ollamaModel}\`). If it's running, allow this page's origin via OLLAMA_ORIGINS (or, on a Mac app: launchctl setenv OLLAMA_ORIGINS "*", then restart Ollama).`);
-        } else if (reason === 'model-missing') {
-          setError(`Ollama is up but the model "${ollamaModel}" isn't installed. Run \`ollama pull ${ollamaModel}\`, then try again.`);
-        } else {
-          setError(`Gemma didn't return a usable answer. Try again, or switch the model/source.`);
-        }
-      } finally {
-        setLoading(false);
-      }
+    // Featured first: a pre-generated profile (covers niche/private companies)
+    // resolves instantly, no network needed. Otherwise fall back to Wikipedia.
+    const featured = findFeatured(searchQuery);
+    if (featured) {
+      pushUrl();
+      setData(buildFromFeatured(featured));
+      setImage(null); // no photo for generated profiles — use the gradient scene
+      setLoading(false);
       return;
     }
 
@@ -522,7 +522,7 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       const resolved = await resolveEntity(searchQuery);
       if (!resolved || 'notFound' in resolved) {
         setError(
-          `No solid match for "${searchQuery}". VibeCheck reads from Wikipedia, so very new, private, or niche companies may not be covered yet — try a more established name, double-check the spelling, or switch to the local Ollama model.`,
+          `No solid match for "${searchQuery}". VibeCheck reads from Wikipedia plus a set of hand-picked profiles, so very new, private, or niche companies may not be covered yet — try a more established name or double-check the spelling.`,
         );
         setLoading(false);
         return;
@@ -737,10 +737,22 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
                   <ExternalLink className="w-6 h-6 text-[#ccff00] group-hover:translate-x-1 transition-transform" />
                 </a>
               )}
-              {data?.source === 'ollama' && (
-                <p className="text-sm text-gray-400 leading-relaxed bg-black/40 p-4 rounded-2xl border border-white/10">
-                  Generated locally by <span className="text-[#ccff00] font-bold">{ollamaModel}</span> via Ollama, from the
-                  model's own knowledge — no live web data. Treat it as a vibe read, not a fact sheet; double-check anything important.
+              {data?.source === 'featured' && data.sources && data.sources.length > 0 && (
+                <div className="bg-black/40 p-4 md:p-5 rounded-2xl border border-white/10">
+                  <div className="text-[10px] md:text-xs text-gray-400 uppercase tracking-widest mb-3">Grounded in these sources</div>
+                  <div className="space-y-2">
+                    {data.sources.map((s, i) => (
+                      <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-gray-200 hover:text-[#ccff00] transition-colors group">
+                        <ExternalLink className="w-4 h-4 shrink-0 text-[#00ffff]" />
+                        <span className="truncate group-hover:underline">{s.title}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data?.source === 'featured' && (
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Pre-generated profile, grounded from the web with a local model. It's a helpful overview, not gospel — double-check anything important.
                 </p>
               )}
             </div>
@@ -838,61 +850,8 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
                   Check the Vibe
                 </h2>
                 <p className="text-gray-500 dark:text-gray-400 text-lg md:text-xl max-w-2xl mx-auto text-center mb-8">
-                  Type any company name below or select a trending brand to generate an immersive, highly visual story.
+                  Type any company name below, or tap a featured profile, to generate an immersive, highly visual story.
                 </p>
-
-                {/* Data-source picker: real Wikipedia data vs. a local Ollama model. */}
-                <div className="w-full max-w-2xl mx-auto mb-8 flex flex-col items-center gap-3">
-                  <div className="inline-flex p-1 rounded-full bg-white dark:bg-[#141414] border border-gray-200 dark:border-white/10 shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() => setSource('wikipedia')}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${source === 'wikipedia' ? 'bg-[#ccff00] text-black' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
-                    >
-                      Wikipedia
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSource('ollama')}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 ${source === 'ollama' ? 'bg-[#ccff00] text-black' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${ollamaUp === true ? 'bg-green-500' : ollamaUp === false ? 'bg-red-500' : 'bg-gray-400'}`} />
-                      Ollama · local
-                    </button>
-                  </div>
-
-                  {source === 'wikipedia' ? (
-                    <p className="text-xs text-gray-500 dark:text-gray-500 text-center max-w-md">
-                      Real, key-free data from Wikipedia. Great for established brands; very new or private companies may not be covered.
-                    </p>
-                  ) : (
-                    <div className="w-full max-w-md flex flex-col items-center gap-2">
-                      <div className="flex gap-2 w-full">
-                        <input
-                          type="text"
-                          value={ollamaModel}
-                          onChange={(e) => setOllamaModel(e.target.value)}
-                          placeholder="model (e.g. gemma3)"
-                          className="flex-1 min-w-0 bg-white dark:bg-[#141414] border border-gray-200 dark:border-white/10 rounded-full py-1.5 px-4 text-sm focus:outline-none focus:border-[#ccff00] text-gray-900 dark:text-white"
-                        />
-                        <input
-                          type="text"
-                          value={ollamaUrl}
-                          onChange={(e) => setOllamaUrl(e.target.value)}
-                          placeholder="http://localhost:11434"
-                          className="flex-1 min-w-0 bg-white dark:bg-[#141414] border border-gray-200 dark:border-white/10 rounded-full py-1.5 px-4 text-sm focus:outline-none focus:border-[#ccff00] text-gray-900 dark:text-white"
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 text-center">
-                        {ollamaBlockedByHttps
-                          ? <>⚠️ This is the published (https) site — browsers block it from reaching your local Ollama. Run VibeCheck locally (<code className="text-[#ccff00]">npm run dev</code>) to use it.</>
-                          : ollamaUp === false
-                          ? <>No Ollama detected. Run <code className="text-[#ccff00]">ollama run {ollamaModel || 'gemma3'}</code> locally. Generated from the model's memory — vibes, not live facts.</>
-                          : <>Generated locally by your model — no key, no web. It answers from memory, so double-check the details.</>}
-                      </p>
-                    </div>
-                  )}
-                </div>
 
                 <form onSubmit={onSubmit} className="w-full max-w-2xl mx-auto relative group mb-16">
                   <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
@@ -910,24 +869,33 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
                   </button>
                 </form>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-5xl mx-auto">
-                  {PREPOPULATED_COMPANIES.map((company) => (
-                    <motion.button
-                      key={company.name}
-                      whileHover={{ scale: 1.05, y: -5 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleSearch(company.name)}
-                      className={`relative overflow-hidden rounded-3xl p-6 text-left shadow-lg transition-all hover:shadow-2xl group bg-gradient-to-br ${company.color} animate-gradient min-h-[140px] md:min-h-[160px] flex flex-col justify-end border border-white/10`}
-                    >
-                      <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90" />
-                      <div className="relative z-10 transform group-hover:-translate-y-1 transition-transform duration-300">
-                        <h3 className="text-xl md:text-2xl font-black text-white mb-1 tracking-tight drop-shadow-md">{company.name}</h3>
-                        <p className="text-white/80 text-xs font-bold uppercase tracking-widest drop-shadow-md">{company.sector}</p>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
+                {FEATURED.length > 0 && (
+                  <>
+                    <p className="text-[10px] font-mono font-bold uppercase tracking-[0.3em] text-gray-400 dark:text-gray-500 mb-4">
+                      Featured profiles
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-5xl mx-auto">
+                      {FEATURED.map((company) => (
+                        <motion.button
+                          key={company.slug || company.name}
+                          whileHover={{ scale: 1.05, y: -5 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleSearch(company.name)}
+                          className={`relative overflow-hidden rounded-3xl p-6 text-left shadow-lg transition-all hover:shadow-2xl group bg-gradient-to-br ${company.gradient} animate-gradient min-h-[140px] md:min-h-[160px] flex flex-col justify-end border border-white/10`}
+                        >
+                          <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90" />
+                          <div className="relative z-10 transform group-hover:-translate-y-1 transition-transform duration-300">
+                            <h3 className="text-xl md:text-2xl font-black text-white mb-1 tracking-tight drop-shadow-md">{company.name}</h3>
+                            {company.sector && (
+                              <p className="text-white/80 text-xs font-bold uppercase tracking-widest drop-shadow-md">{company.sector}</p>
+                            )}
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </motion.div>
             )}
 

@@ -1,0 +1,15 @@
+[
+  { "name": "Chingona Ventures", "sector": "Venture Capital" },
+  { "name": "Patagonia", "sector": "Apparel" },
+  { "name": "Liquid Death", "sector": "Beverage" },
+  { "name": "Duolingo", "sector": "EdTech" },
+  { "name": "Anthropic", "sector": "AI" },
+  { "name": "Notion", "sector": "Software" },
+  { "name": "The Browser Company", "sector": "Software" },
+  { "name": "Precursor Ventures", "sector": "Venture Capital" },
+  { "name": "Hugging Face", "sector": "AI" },
+  { "name": "Figma", "sector": "Design" },
+  { "name": "Discord", "sector": "Social" },
+  { "name": "Substack", "sector": "Publishing" },
+  { "name": "A24", "sector": "Entertainment" }
+]

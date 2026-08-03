@@ -1,0 +1,28 @@
+{
+  "name": "Duolingo",
+  "slug": "duolingo",
+  "sector": "EdTech",
+  "gradient": "from-[#58CC02] via-[#46A302] to-[#2b6301]",
+  "tagline": "Free language learning, one streak at a time",
+  "rundown": "Duolingo is the world's most popular language-learning app, using bite-sized gamified lessons, streaks, and a famously pushy green owl mascot to keep hundreds of millions of learners coming back. It's free to use, funded by ads and a subscription tier.",
+  "founded": "2011, Pittsburgh",
+  "industry": "Educational technology",
+  "headquarters": "Pittsburgh, Pennsylvania, USA",
+  "founders": ["Luis von Ahn", "Severin Hacker"],
+  "timeline": [
+    { "year": "2011", "event": "Luis von Ahn and Severin Hacker found Duolingo at Carnegie Mellon University." },
+    { "year": "2012", "event": "The app launches publicly, free to use." },
+    { "year": "2021", "event": "Duolingo goes public on the Nasdaq." }
+  ],
+  "notableFacts": [
+    "Co-founder Luis von Ahn also invented reCAPTCHA.",
+    "Its green owl mascot, Duo, is internet-famous for aggressively reminding you to practice.",
+    "It's free to use, monetized through ads and its Super/Max subscriptions."
+  ],
+  "website": "duolingo.com",
+  "sources": [
+    { "title": "Duolingo — official site", "url": "https://www.duolingo.com/" }
+  ],
+  "generatedBy": "seed",
+  "updated": "2026-08-03"
+}

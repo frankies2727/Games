@@ -1,0 +1,28 @@
+{
+  "name": "Patagonia",
+  "slug": "patagonia",
+  "sector": "Apparel",
+  "gradient": "from-orange-500 via-red-600 to-stone-800",
+  "tagline": "In business to save our home planet",
+  "rundown": "Patagonia is an American outdoor-apparel company famous for durable gear and radical environmental activism. Founder Yvon Chouinard built it around an anti-consumerism ethos, and in 2022 he gave the company away so that its profits fund fighting the climate crisis.",
+  "founded": "1973, Ventura, California",
+  "industry": "Outdoor apparel",
+  "headquarters": "Ventura, California, USA",
+  "founders": ["Yvon Chouinard"],
+  "timeline": [
+    { "year": "1973", "event": "Yvon Chouinard founds Patagonia, growing it out of his climbing-gear business." },
+    { "year": "2011", "event": "Runs its 'Don't Buy This Jacket' anti-consumerism ad on Black Friday." },
+    { "year": "2022", "event": "Chouinard transfers ownership to a trust and nonprofit so profits fund environmental causes." }
+  ],
+  "notableFacts": [
+    "Its mission statement is \"We're in business to save our home planet.\"",
+    "It pledges 1% of sales to environmental groups through '1% for the Planet,' which Chouinard co-founded.",
+    "In 2022 the founder gave the company away rather than sell it or go public."
+  ],
+  "website": "patagonia.com",
+  "sources": [
+    { "title": "Patagonia — official site", "url": "https://www.patagonia.com/" }
+  ],
+  "generatedBy": "seed",
+  "updated": "2026-08-03"
+}

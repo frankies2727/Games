@@ -1,8 +1,9 @@
 import { lazy } from 'react';
 import { ProjectDefinition } from './types';
 
-// Lazy-loaded so its heavy deps (recharts, motion, genai) only download when a
-// visitor actually opens the project — the games home screen stays lean.
+// Lazy-loaded so its heavier deps (motion, file-saver, html-to-image) only
+// download when a visitor actually opens the project — the games home screen
+// stays lean.
 const VibeCheck = lazy(() =>
   import('./vibecheck/VibeCheck').then((m) => ({ default: m.VibeCheck })),
 );
@@ -15,7 +16,7 @@ export const PROJECTS: ProjectDefinition[] = [
     name: 'VibeCheck',
     tagline: 'The immersive company story generator.',
     description:
-      'Type any company or tap a trending brand to generate a highly visual, scrollable story — the rundown, fast facts, a timeline and fun facts, pulled live from the open web. No API key needed.',
+      'Type any company or tap a featured profile to generate a highly visual, scrollable story — the rundown, fast facts, a timeline and fun facts, from Wikipedia plus web-grounded profiles pre-baked offline. No API key needed.',
     emoji: '⚡',
     gradient: 'from-[#ccff00] via-[#8fae00] to-[#0a0a0a]',
     status: 'Live',
