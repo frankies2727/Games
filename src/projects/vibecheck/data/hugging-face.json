@@ -1,0 +1,50 @@
+{
+  "name": "Hugging Face",
+  "slug": "hugging-face",
+  "sector": "AI",
+  "tagline": "Making ML accessible, one transformer at a time.",
+  "rundown": "Hugging Face is building the infrastructure for the future of AI, primarily through its popular transformers library for natural language processing. They've created a vibrant community-driven platform where users can share, discover, and deploy cutting-edge machine learning models and datasets. Essentially, they’re democratizing access to powerful NLP tech.",
+  "founded": "2016",
+  "industry": "Artificial Intelligence / Machine Learning",
+  "headquarters": "New York City, USA",
+  "founders": [
+    "Camil Essiadi",
+    "Clément Delangue",
+    "Julien Chaumond"
+  ],
+  "timeline": [
+    {
+      "year": "2016",
+      "event": "Founded by Camil Essiadi, Clément Delangue and Julien Chaumond."
+    },
+    {
+      "year": "2019",
+      "event": "Released the Transformers library, quickly becoming a cornerstone of NLP development."
+    },
+    {
+      "year": "2020",
+      "event": "Launched the Hugging Face Hub – a platform for sharing and discovering models and datasets."
+    },
+    {
+      "year": "2021",
+      "event": "Expanded into enterprise solutions with offerings like Inference Endpoints."
+    },
+    {
+      "year": "2022",
+      "event": "Continued investment in open-source and community growth."
+    }
+  ],
+  "notableFacts": [
+    "Their core product, the Transformers library, has become incredibly popular within the NLP research community.",
+    "They've fostered a strong emphasis on open source collaboration and community contributions.",
+    "The Hugging Face Hub is one of the largest repositories for pre-trained models in the world."
+  ],
+  "sources": [
+    {
+      "title": "Wikipedia — Hugging Face",
+      "url": "https://en.wikipedia.org/wiki/Hugging_Face"
+    }
+  ],
+  "generatedBy": "gemma3:4b",
+  "updated": "2026-08-03"
+}

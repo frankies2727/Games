@@ -1,0 +1,50 @@
+{
+  "name": "The Browser Company",
+  "slug": "the-browser-company",
+  "sector": "Software",
+  "tagline": "From browsing to brilliance: Arc's legacy lives on.",
+  "rundown": "The Browser Company initially launched Arc, a freeware browser designed for simplicity and speed. However, in 2025, the company pivoted dramatically, announcing the sunsetting of Arc and refocusing its efforts on Dia, an AI-powered browser. Now maintained via Chromium updates, The Browser Company's trajectory highlights a bold shift within the tech landscape.",
+  "founded": "2023, United States",
+  "industry": "Software (Web Browsers)",
+  "headquarters": "United States",
+  "founders": [
+    "Josh Miller",
+    "Harsh Agrawal"
+  ],
+  "timeline": [
+    {
+      "year": "2023",
+      "event": "Arc browser released for macOS."
+    },
+    {
+      "year": "2023",
+      "event": "Arc browser launched on Windows, iOS and Android."
+    },
+    {
+      "year": "2025",
+      "event": "The Browser Company announced the sunsetting of Arc."
+    },
+    {
+      "year": "2025",
+      "event": "Atlassian acquired The Browser Company."
+    },
+    {
+      "year": "2025",
+      "event": "Shift in focus to developing the Dia AI browser."
+    }
+  ],
+  "notableFacts": [
+    "Initially created as a freeware alternative to existing browsers.",
+    "The company’s rapid shift to development of Dia demonstrates agility within the competitive tech market.",
+    "Arc continues to be maintained through Chromium updates and security patches, ensuring continued functionality.",
+    "Acquired by Atlassian in 2025, suggesting a strategic investment in innovative browser technologies."
+  ],
+  "sources": [
+    {
+      "title": "Wikipedia — Arc (web browser)",
+      "url": "https://en.wikipedia.org/wiki/Arc_(web_browser)"
+    }
+  ],
+  "generatedBy": "gemma3:4b",
+  "updated": "2026-08-03"
+}

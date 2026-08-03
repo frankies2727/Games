@@ -1,0 +1,55 @@
+{
+  "name": "A24",
+  "slug": "a24",
+  "sector": "Entertainment",
+  "tagline": "Cult classics. Seriously.",
+  "rundown": "A24 is redefining indie cinema, championing distinctive, often unsettling films that resonate deeply with a devoted fanbase. They're not chasing blockbusters; they’re curating experiences—distributing and producing critically acclaimed works that consistently push boundaries and generate passionate cult followings. Their focus on unconventional storytelling has established them as a major force in contemporary arthouse film.",
+  "founded": "2012",
+  "industry": "Film Production & Distribution",
+  "headquarters": "Los Angeles, California, USA",
+  "founders": [
+    "Daniel Katz",
+    "David Greenbaum",
+    "John Hodges"
+  ],
+  "timeline": [
+    {
+      "year": "2012",
+      "event": "Launched with 'Spring Breakers,' immediately establishing a provocative and stylish brand."
+    },
+    {
+      "year": "2013",
+      "event": "Released 'Under the Skin,' a visually arresting and enigmatic sci-fi thriller."
+    },
+    {
+      "year": "2015",
+      "event": "Distributed 'The Witch,' a critically acclaimed folk horror film that gained significant attention."
+    },
+    {
+      "year": "2016",
+      "event": "Released 'Moonlight,' winning the Academy Award for Best Picture – a landmark moment."
+    },
+    {
+      "year": "2018",
+      "event": "'Hereditary' became a horror phenomenon, showcasing A24’s ability to cultivate genre interest."
+    },
+    {
+      "year": "2022",
+      "event": "'Everything Everywhere All at Once' achieved massive critical and commercial success, proving their reach."
+    }
+  ],
+  "notableFacts": [
+    "They’ve built a strong reputation for releasing films that gain significant momentum through word-of-mouth.",
+    "A24 actively cultivates relationships with emerging directors, fostering creative freedom.",
+    "Their distribution model prioritizes quality over quantity, focusing on fewer, impactful releases.",
+    "The company's name is derived from the 1986 film 'A Nightmare on Elm Street,' a nod to their independent spirit."
+  ],
+  "sources": [
+    {
+      "title": "Wikipedia — A24",
+      "url": "https://en.wikipedia.org/wiki/A24"
+    }
+  ],
+  "generatedBy": "gemma3:4b",
+  "updated": "2026-08-03"
+}

@@ -1,0 +1,53 @@
+{
+  "name": "Figma",
+  "slug": "figma",
+  "sector": "Design",
+  "tagline": "Design in real-time. Seriously.",
+  "rundown": "Figma is a web-based UI design tool that's become the go-to for designers building everything from mobile apps to websites. It’s all about collaborative, real-time design, streamlining workflows and letting teams work together seamlessly. With over 13 million users, Figma has fundamentally shifted how digital products are conceptualized and built.",
+  "founded": "2012, San Francisco, USA",
+  "industry": "Software (User Interface Design)",
+  "headquarters": "San Francisco, USA",
+  "founders": [
+    "Dylan Field",
+    "Evan Wallace"
+  ],
+  "timeline": [
+    {
+      "year": "2012",
+      "event": "Founded by Dylan Field and Evan Wallace"
+    },
+    {
+      "year": "2013",
+      "event": "Launched the initial version of Figma"
+    },
+    {
+      "year": "2016",
+      "event": "Introduced vector editing capabilities"
+    },
+    {
+      "year": "2018",
+      "event": "Released Figma 2.0 with improved collaboration features"
+    },
+    {
+      "year": "2020",
+      "event": "Expanded to include prototyping functionality"
+    },
+    {
+      "year": "2025",
+      "event": "Reached 13 million users"
+    }
+  ],
+  "notableFacts": [
+    "Figma is entirely browser-based, eliminating the need for local software installations.",
+    "It pioneered a fully collaborative design workflow in the web application space.",
+    "The platform's real-time co-editing makes it ideal for remote and distributed teams."
+  ],
+  "sources": [
+    {
+      "title": "Wikipedia — Figma",
+      "url": "https://en.wikipedia.org/wiki/Figma"
+    }
+  ],
+  "generatedBy": "gemma3:4b",
+  "updated": "2026-08-03"
+}

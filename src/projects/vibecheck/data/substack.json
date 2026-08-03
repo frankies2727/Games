@@ -1,0 +1,54 @@
+{
+  "name": "Substack",
+  "slug": "substack",
+  "sector": "Publishing",
+  "tagline": "Direct your voice. Own your audience.",
+  "rundown": "Substack is a platform built to empower independent creators by providing the tools needed to build and monetize subscription-based digital content – think newsletters, podcasts, and videos. It streamlines the entire publishing process from creation to payment, allowing writers to connect directly with their fans without relying on traditional media gatekeepers. Despite some controversy around its approach to content moderation and data security, Substack has become a surprisingly influential force in online publishing.",
+  "founded": "2017, San Francisco",
+  "industry": "Online Publishing & Media Technology",
+  "headquarters": "San Francisco, USA",
+  "founders": [
+    "Hamish McKenzie"
+  ],
+  "timeline": [
+    {
+      "year": "2017",
+      "event": "Substack launches its initial platform for writers to publish newsletters."
+    },
+    {
+      "year": "2018",
+      "event": "The company begins gaining traction, attracting a growing number of established writers and journalists."
+    },
+    {
+      "year": "2019",
+      "event": "Substack introduces podcasting capabilities alongside newsletters."
+    },
+    {
+      "year": "2020",
+      "event": "Increased attention due to prominent figures like Paul Graham and Chris Hughes joining the company."
+    },
+    {
+      "year": "2021",
+      "event": "Substack experiences significant growth, attracting a large influx of new users."
+    },
+    {
+      "year": "2023",
+      "event": "Continued expansion into video content and further refinements to its publishing tools."
+    }
+  ],
+  "notableFacts": [
+    "The platform was initially funded by Y Combinator.",
+    "Substack has been criticized for its handling of user data security, resulting in breaches.",
+    "It’s gained a significant following among independent journalists and thought leaders.",
+    "The company's business model relies heavily on subscription payments from readers to writers.",
+    "Substack’s rapid growth has disrupted the traditional publishing landscape."
+  ],
+  "sources": [
+    {
+      "title": "Wikipedia — Substack",
+      "url": "https://en.wikipedia.org/wiki/Substack"
+    }
+  ],
+  "generatedBy": "gemma3:4b",
+  "updated": "2026-08-03"
+}

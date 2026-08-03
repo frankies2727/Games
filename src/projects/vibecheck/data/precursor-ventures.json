@@ -1,0 +1,49 @@
+{
+  "name": "Precursor Ventures",
+  "slug": "precursor-ventures",
+  "sector": "Venture Capital",
+  "tagline": "Building the future, one innovative product at a time.",
+  "rundown": "Precursor Ventures, spearheaded by Camille Hearst, is focused on pioneering ventures across tech, social networks, digital music, and design. Hearst's decades of experience as an innovator and entrepreneur make her a key figure in fostering new ideas and driving progress within these sectors. Her work highlights the importance of diverse leadership in shaping future technologies.",
+  "founded": "2016",
+  "industry": "Technology, Social Networking, Digital Music, Product Design",
+  "headquarters": "Unknown",
+  "founders": [
+    "Camille Hearst"
+  ],
+  "timeline": [
+    {
+      "year": "2016",
+      "event": "Founded Kit, a startup recognized for its contributions to the technology and digital music sectors."
+    },
+    {
+      "year": "Unknown",
+      "event": "Camille Hearst began her career as an innovator in the technology sector."
+    },
+    {
+      "year": "Unknown",
+      "event": "Established a significant presence within social networks and digital product design."
+    },
+    {
+      "year": "Unknown",
+      "event": "Recognized as a leading woman of color in entrepreneurship."
+    },
+    {
+      "year": "Unknown",
+      "event": "Served as Women C.E.O. and founder of color, breaking barriers within the startup ecosystem."
+    }
+  ],
+  "notableFacts": [
+    "Camille Hearst is an African-American entrepreneur and innovator.",
+    "She's been recognized for her extensive contributions to multiple technology sectors over decades.",
+    "She’s a prominent figure in showcasing diverse leadership within the entrepreneurial landscape.",
+    "Her work highlights the importance of women C.E.O.’s in startups."
+  ],
+  "sources": [
+    {
+      "title": "Wikipedia — Camille Hearst",
+      "url": "https://en.wikipedia.org/wiki/Camille_Hearst"
+    }
+  ],
+  "generatedBy": "gemma3:4b",
+  "updated": "2026-08-03"
+}

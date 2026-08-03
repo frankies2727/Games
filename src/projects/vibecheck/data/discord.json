@@ -1,0 +1,50 @@
+{
+  "name": "Discord",
+  "slug": "discord",
+  "sector": "Social",
+  "tagline": "Your digital hangout – built for community vibes.",
+  "rundown": "Discord is a platform designed to foster online communities through real-time communication. It provides tools like voice and video calls alongside text messaging, all organized within 'servers' which are essentially private or public spaces for conversation. Primarily used by gamers and various interest groups, Discord has become a central hub for digital connection.",
+  "founded": "2015, Amsterdam",
+  "industry": "Social Media & Communication Technology",
+  "headquarters": "San Francisco, USA",
+  "founders": [
+    "Jason Citron",
+    "Stanislav Gandofarov"
+  ],
+  "timeline": [
+    {
+      "year": "2015",
+      "event": "Discord launches its first version as a beta."
+    },
+    {
+      "year": "2016",
+      "event": "Discord gains popularity within the gaming community."
+    },
+    {
+      "year": "2018",
+      "event": "Discord introduces screen sharing functionality."
+    },
+    {
+      "year": "2019",
+      "event": "Discord expands beyond gaming to support diverse communities and interests."
+    },
+    {
+      "year": "2021",
+      "event": "Discord announces a new Nitro subscription service for enhanced features."
+    }
+  ],
+  "notableFacts": [
+    "Originally created as a tool to improve communication within Supercell, the makers of Clash of Clans.",
+    "Discord’s servers are designed with persistent channels, allowing conversations and shared media to remain accessible over time.",
+    "The platform's architecture is built for scalability, handling millions of users concurrently.",
+    "Discord has become a surprisingly popular space for educational communities and online learning groups."
+  ],
+  "sources": [
+    {
+      "title": "Wikipedia — Discord",
+      "url": "https://en.wikipedia.org/wiki/Discord"
+    }
+  ],
+  "generatedBy": "gemma3:4b",
+  "updated": "2026-08-03"
+}

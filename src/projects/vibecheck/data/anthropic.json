@@ -1,0 +1,50 @@
+{
+  "name": "Anthropic",
+  "slug": "anthropic",
+  "sector": "AI",
+  "tagline": "Building AI that’s actually good for humanity.",
+  "rundown": "Anthropic is a rising star in the AI space, focused on developing large language models like Claude with a serious emphasis on safety and beneficial outcomes. Founded by former OpenAI folks, they're tackling the tricky questions around AI alignment – ensuring these powerful systems behave predictably and ethically. With a massive valuation and ambitious plans for an IPO, Anthropic is poised to play a major role in shaping the future of AI.",
+  "founded": "2021, San Francisco",
+  "industry": "Artificial Intelligence (AI)",
+  "headquarters": "San Francisco, California",
+  "founders": [
+    "Daniela Amodei",
+    "Dario Amodei"
+  ],
+  "timeline": [
+    {
+      "year": "2021",
+      "event": "Founded by Daniela and Dario Amodei, former OpenAI researchers."
+    },
+    {
+      "year": "2022",
+      "event": "Released Claude 1, their initial large language model."
+    },
+    {
+      "year": "2023",
+      "event": "Launched Claude 2, significantly improving performance and capabilities."
+    },
+    {
+      "year": "2024",
+      "event": "Expanded access to Claude via API and partnerships."
+    },
+    {
+      "year": "2025",
+      "event": "Continued development focused on Constitutional AI – training models based on ethical principles."
+    }
+  ],
+  "notableFacts": [
+    "Founded by siblings who previously worked at OpenAI.",
+    "Anthropic is structured as a public benefit corporation, prioritizing societal good alongside profit.",
+    "They've achieved an estimated valuation of $965 billion, making them the most valuable pure-play AI company.",
+    "Their 'Constitutional AI' approach aims to build more aligned and reliable language models."
+  ],
+  "sources": [
+    {
+      "title": "Wikipedia — Anthropic",
+      "url": "https://en.wikipedia.org/wiki/Anthropic"
+    }
+  ],
+  "generatedBy": "gemma3:4b",
+  "updated": "2026-08-03"
+}
