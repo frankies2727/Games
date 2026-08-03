@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Play,
   Pause,
@@ -21,14 +21,29 @@ import { motion, AnimatePresence } from 'motion/react';
 const ZOOM = 6; // ~one tile spanning a wide region, matching the reference.
 const TILE = 512;
 const VIIRS_FROM_YEAR = 2016;
+const LAYER_VIIRS = 'VIIRS_SNPP_CorrectedReflectance_TrueColor';
+const LAYER_MODIS = 'MODIS_Terra_CorrectedReflectance_TrueColor';
+// Pick the source by each frame's own year, so a range spanning Jan 2016 blends
+// the cleaner VIIRS (2016+) with MODIS Terra (2000+) automatically.
 const layerForYear = (yr: number) =>
-  yr >= VIIRS_FROM_YEAR
-    ? 'VIIRS_SNPP_CorrectedReflectance_TrueColor'
-    : 'MODIS_Terra_CorrectedReflectance_TrueColor';
-const sourceLabel = (yr: number) =>
-  yr >= VIIRS_FROM_YEAR ? 'VIIRS' : 'MODIS Terra';
+  yr >= VIIRS_FROM_YEAR ? LAYER_VIIRS : LAYER_MODIS;
+const layerForDate = (iso: string) =>
+  layerForYear(parseInt(iso.slice(0, 4), 10));
+const rangeSource = (fromYear: number, toYear: number) => {
+  const hasViirs = toYear >= VIIRS_FROM_YEAR;
+  const hasModis = fromYear < VIIRS_FROM_YEAR;
+  return hasViirs && hasModis
+    ? 'VIIRS + MODIS Terra'
+    : hasViirs
+      ? 'VIIRS'
+      : 'MODIS Terra';
+};
 const GIBS = (layer: string, date: string, row: number, col: number) =>
   `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/${layer}/default/${date}/250m/${ZOOM}/${row}/${col}.jpg`;
+
+const MODIS_START = '2000-02-24'; // earliest MODIS Terra true-colour imagery
+const MAX_FRAMES = 300; // cap frames so long ranges stay smooth on memory
+const DAY = 86400000;
 
 // EPSG:4326 tile grid math (ported from the reference notebook).
 const tileWidthDeg = 288.0 / 2 ** ZOOM;
@@ -58,6 +73,13 @@ interface Pin {
 }
 
 const pad = (n: number) => n.toString().padStart(2, '0');
+const toISO = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
+    d.getUTCDate(),
+  )}`;
+};
+const parseISO = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
 const CADENCES: { label: string; step: number }[] = [
   { label: 'Weekly', step: 7 },
   { label: 'Every 3 days', step: 3 },
@@ -71,10 +93,17 @@ const SPEEDS: { label: string; fps: number }[] = [
 
 export function SatelliteMode() {
   const now = new Date();
-  const currentYear = now.getUTCFullYear();
+  const todayUTC = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  const yesterdayISO = toISO(todayUTC - DAY);
 
   const [place, setPlace] = useState('');
-  const [year, setYear] = useState(currentYear - 1);
+  // Default to the last full year, matching the prior single-year behaviour.
+  const [fromDate, setFromDate] = useState(() => toISO(todayUTC - 366 * DAY));
+  const [toDate, setToDate] = useState(() => toISO(todayUTC - DAY));
   const [step, setStep] = useState(7);
   const [fps, setFps] = useState(8);
 
@@ -128,28 +157,48 @@ export function SatelliteMode() {
     };
   }, []);
 
-  const buildDates = (yr: number, stepDays: number): string[] => {
+  // Plan the frames for a From→To range: clamp to valid bounds, and if the
+  // chosen cadence would exceed MAX_FRAMES, coarsen the step automatically so a
+  // multi-year range stays smooth instead of loading thousands of tiles.
+  const planRange = (from: string, to: string, stepDays: number) => {
+    let startMs = parseISO(from);
+    let endMs = parseISO(to);
+    const minMs = parseISO(MODIS_START);
+    if (isNaN(startMs) || isNaN(endMs)) {
+      return { dates: [] as string[], effStep: stepDays, count: 0, capped: false, valid: false, startMs, endMs };
+    }
+    endMs = Math.min(endMs, todayUTC - DAY);
+    startMs = Math.max(startMs, minMs);
+    if (startMs > endMs) {
+      return { dates: [] as string[], effStep: stepDays, count: 0, capped: false, valid: false, startMs, endMs };
+    }
+    const totalDays = Math.floor((endMs - startMs) / DAY) + 1;
+    const effStep = Math.max(stepDays, Math.ceil(totalDays / MAX_FRAMES));
     const dates: string[] = [];
-    const start = Date.UTC(yr, 0, 1);
-    let end = Date.UTC(yr, 11, 31);
-    if (yr === currentYear) {
-      const todayUTC = Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-      );
-      end = Math.min(end, todayUTC - 86400000);
-    }
-    for (let t = start; t <= end; t += stepDays * 86400000) {
-      const d = new Date(t);
-      dates.push(
-        `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
-          d.getUTCDate(),
-        )}`,
-      );
-    }
-    return dates;
+    for (let t = startMs; t <= endMs; t += effStep * DAY) dates.push(toISO(t));
+    return {
+      dates,
+      effStep,
+      count: dates.length,
+      capped: effStep > stepDays,
+      valid: true,
+      startMs,
+      endMs,
+    };
   };
+
+  // Live preview of what the current inputs will produce (for the readout).
+  const plan = useMemo(
+    () => planRange(fromDate, toDate, step),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fromDate, toDate, step],
+  );
+  const planSource = plan.valid
+    ? rangeSource(
+        new Date(plan.startMs).getUTCFullYear(),
+        new Date(plan.endMs).getUTCFullYear(),
+      )
+    : '—';
 
   // Load a single tile with CORS so the canvas stays untainted; resolves null
   // on missing imagery so gaps just get skipped.
@@ -196,13 +245,20 @@ export function SatelliteMode() {
       const ratio = getPinRatio(lat, lon, row, col);
       const label = [hit.name, hit.country_code].filter(Boolean).join(', ');
 
-      // 2. Fetch tiles for the year (VIIRS for recent years, MODIS Terra for
-      // older ones).
-      const layer = layerForYear(year);
-      const dates = buildDates(year, step);
-      setProgressMsg(
-        `Downloading ${dates.length} ${sourceLabel(year)} frames…`,
+      // 2. Fetch tiles across the range. Source is chosen per date (VIIRS for
+      // 2016+, MODIS Terra for older), so ranges crossing 2016 blend both.
+      const range = planRange(fromDate, toDate, step);
+      const dates = range.dates;
+      if (dates.length === 0) {
+        setError('Pick a valid date range — From on or before To.');
+        setLoading(false);
+        return;
+      }
+      const srcLabel = rangeSource(
+        new Date(range.startMs).getUTCFullYear(),
+        new Date(range.endMs).getUTCFullYear(),
       );
+      setProgressMsg(`Downloading ${dates.length} ${srcLabel} frames…`);
 
       const loaded: Frame[] = [];
       let done = 0;
@@ -211,7 +267,7 @@ export function SatelliteMode() {
         if (cancelRef.current) return;
         const batch = dates.slice(i, i + CONCURRENCY);
         const results = await Promise.all(
-          batch.map((d) => loadTile(GIBS(layer, d, row, col), d)),
+          batch.map((d) => loadTile(GIBS(layerForDate(d), d, row, col), d)),
         );
         results.forEach((r) => r && loaded.push(r));
         done += batch.length;
@@ -223,7 +279,7 @@ export function SatelliteMode() {
       loaded.sort((a, b) => a.date.localeCompare(b.date));
       if (loaded.length === 0) {
         setError(
-          'No satellite imagery came back for that place and year. Try a different year.',
+          'No satellite imagery came back for that place and range. Try a different place or dates.',
         );
         setLoading(false);
         return;
@@ -311,7 +367,7 @@ export function SatelliteMode() {
           a.href = url;
           a.download = `satellite-timelapse-${(pin?.label || place)
             .replace(/[^a-z0-9]/gi, '_')
-            .toLowerCase()}-${year}.webm`;
+            .toLowerCase()}-${fromDate}_to_${toDate}.webm`;
           a.click();
           URL.revokeObjectURL(url);
           resolve();
@@ -363,24 +419,30 @@ export function SatelliteMode() {
                 onChange={(e) => setPlace(e.target.value)}
               />
             </div>
-            <input
-              type="number"
-              min={2000}
-              max={currentYear}
-              className="w-24 bg-neutral-900 border border-neutral-700 rounded-full py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all tabular-nums"
-              value={year}
-              onChange={(e) =>
-                setYear(
-                  Math.max(
-                    2000,
-                    Math.min(currentYear, parseInt(e.target.value, 10) || currentYear),
-                  ),
-                )
-              }
-            />
+            <div className="flex items-center gap-1.5 [color-scheme:dark]">
+              <input
+                type="date"
+                min="2000-01-01"
+                max={yesterdayISO}
+                title="From date"
+                className="bg-neutral-900 border border-neutral-700 rounded-full py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all tabular-nums"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+              <span className="text-neutral-500 text-xs">to</span>
+              <input
+                type="date"
+                min="2000-01-01"
+                max={yesterdayISO}
+                title="To date"
+                className="bg-neutral-900 border border-neutral-700 rounded-full py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all tabular-nums"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
             <button
               type="submit"
-              disabled={loading || !place.trim()}
+              disabled={loading || !place.trim() || !plan.valid}
               className="bg-sky-500 hover:bg-sky-400 text-neutral-950 font-medium py-2 px-6 rounded-full text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 min-w-[110px]"
             >
               {loading ? (
@@ -417,9 +479,21 @@ export function SatelliteMode() {
             ))}
           </div>
           <span className="ml-auto text-neutral-500 hidden sm:inline">
-            Source:{' '}
-            <span className="text-neutral-300">{sourceLabel(year)}</span>{' '}
-            {year >= VIIRS_FROM_YEAR ? '(cleaner, 2016+)' : '(back to 2000)'}
+            {plan.valid ? (
+              <>
+                ≈ <span className="text-neutral-300">{plan.count}</span> frames ·
+                every{' '}
+                <span className="text-neutral-300">
+                  {plan.effStep === 1 ? 'day' : `${plan.effStep} days`}
+                </span>
+                {plan.capped ? ' (auto)' : ''} · Source:{' '}
+                <span className="text-neutral-300">{planSource}</span>
+              </>
+            ) : (
+              <span className="text-amber-400/80">
+                Pick a From date on or before the To date
+              </span>
+            )}
           </span>
         </div>
       </header>
@@ -508,8 +582,8 @@ export function SatelliteMode() {
               <div className="flex flex-col items-center justify-center text-neutral-600 gap-4">
                 <Satellite className="w-12 h-12 opacity-20" />
                 <p className="text-sm max-w-xs text-center">
-                  Pick a place and a year to watch it from space, day by day.
-                  No API key needed.
+                  Pick a place and a date range to watch it change from space
+                  over time. No API key needed.
                 </p>
               </div>
             )
