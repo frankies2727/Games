@@ -91,6 +91,7 @@ export function SatelliteMode() {
   const [exportProgress, setExportProgress] = useState(0);
 
   const cancelRef = useRef(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Playback timer.
   useEffect(() => {
@@ -100,6 +101,19 @@ export function SatelliteMode() {
     }
     return () => clearInterval(interval);
   }, [isPlaying, frames.length, fps]);
+
+  // Paint the current frame from the already-decoded in-memory image. Drawing
+  // from memory is instant (no network), so playback and scrubbing stay smooth
+  // even on the first pass — unlike swapping an <img> src, which re-fetches
+  // each tile.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const frame = frames[currentIndex];
+    if (!canvas || !frame) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(frame.img, 0, 0, TILE, TILE);
+  }, [currentIndex, frames]);
 
   // Stop at the end.
   useEffect(() => {
@@ -465,11 +479,12 @@ export function SatelliteMode() {
 
           {current ? (
             <div className="relative aspect-square h-full max-h-full max-w-full rounded-2xl overflow-hidden border border-neutral-800 shadow-2xl">
-              <img
-                src={current.url}
-                alt={`Satellite ${current.date}`}
-                className="w-full h-full object-cover select-none"
-                draggable={false}
+              <canvas
+                ref={canvasRef}
+                width={TILE}
+                height={TILE}
+                aria-label={`Satellite ${current.date}`}
+                className="w-full h-full block select-none"
               />
               {/* Pin */}
               {pin && (
