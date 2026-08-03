@@ -3,52 +3,61 @@ interface PikachuIconProps {
 }
 
 /**
- * A full-body, waving Pikachu drawn as an original inline SVG — no external
- * assets, scales crisply at any size. Used as the "secret" button on the games
- * home screen that jumps over to the personal projects gallery.
+ * A cute, front-facing sitting Pikachu with a warm glow, drawn as an original
+ * inline SVG — no external assets, scales crisply at any size. Used as the
+ * "secret" button on the games home screen that jumps to the projects gallery.
  */
 export function PikachuIcon({ className }: PikachuIconProps) {
   return (
     <svg
-      viewBox="0 0 200 205"
+      viewBox="0 0 200 200"
       className={className}
       role="img"
       aria-label="Pikachu"
       xmlns="http://www.w3.org/2000/svg"
     >
+      <defs>
+        <radialGradient id="pika-glow" cx="50%" cy="52%" r="55%">
+          <stop offset="0%" stopColor="#FFE873" stopOpacity="0.9" />
+          <stop offset="55%" stopColor="#F7D02C" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#F7D02C" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {/* Warm glow (echoes a Pikachu night-light) */}
+      <circle cx="100" cy="108" r="92" fill="url(#pika-glow)" />
       <g stroke="#2B2B2B" strokeWidth="4.5" strokeLinejoin="round" strokeLinecap="round">
-        {/* Tail (lightning bolt), behind the body */}
-        <path d="M150,120 L142,150 L158,146 L150,172 L180,132 L164,136 L172,110 Z" fill="#F7D02C" />
+        {/* Tail (lightning bolt), behind the body on the right */}
+        <path d="M140,118 L150,96 L138,94 L152,72 L176,66 L160,84 L172,86 L150,116 Z" fill="#F7D02C" />
         {/* Left ear */}
-        <path d="M86,64 C76,50 62,32 52,18 C48,12 40,13 40,21 C41,33 54,52 68,68 C74,74 82,70 86,64 Z" fill="#F7D02C" />
+        <path d="M82,60 C72,46 62,27 54,11 C51,5 43,6 43,14 C44,28 57,51 70,65 C74,69 80,66 82,60 Z" fill="#F7D02C" />
         {/* Right ear */}
-        <path d="M116,62 C118,44 124,24 130,10 C133,4 141,5 140,14 C139,28 130,50 122,66 C118,72 112,70 116,62 Z" fill="#F7D02C" />
-        {/* Left arm (raised, rounded paw) */}
-        <path d="M72,104 L43,75 A10 10 0 0 0 29,89 L58,116 Z" fill="#F7D02C" />
-        {/* Right arm (out, rounded paw) */}
-        <path d="M129,105 L167,86 A10 10 0 0 1 176,100 L138,120 Z" fill="#F7D02C" />
-        {/* Body */}
-        <path d="M100,56 C76,56 62,78 60,104 C58,128 64,152 72,166 C80,180 90,186 100,186 C110,186 120,180 128,166 C136,152 142,128 140,104 C138,78 124,56 100,56 Z" fill="#F7D02C" />
+        <path d="M118,60 C128,46 138,27 146,11 C149,5 157,6 157,14 C156,28 143,51 130,65 C126,69 120,66 118,60 Z" fill="#F7D02C" />
+        {/* Body + head (single chubby seated blob) */}
+        <path d="M100,54 C70,54 55,82 55,116 C55,150 72,182 100,182 C128,182 145,150 145,116 C145,82 130,54 100,54 Z" fill="#F7D02C" />
         {/* Feet */}
-        <path d="M82,180 C74,184 74,192 84,192 C93,192 94,185 91,180 Z" fill="#F7D02C" />
-        <path d="M109,180 C106,185 107,192 116,192 C126,192 126,184 118,180 Z" fill="#F7D02C" />
+        <ellipse cx="80" cy="178" rx="15" ry="9" fill="#F7D02C" />
+        <ellipse cx="120" cy="178" rx="15" ry="9" fill="#F7D02C" />
+        {/* Front paws resting on the belly */}
+        <path d="M78,150 C70,150 66,158 72,163 C78,167 86,164 88,157 Z" fill="#F7D02C" />
+        <path d="M122,150 C130,150 134,158 128,163 C122,167 114,164 112,157 Z" fill="#F7D02C" />
       </g>
       {/* Ear tips (black) */}
-      <path d="M52,18 C48,12 40,13 40,21 C41,29 46,39 53,49 L65,31 Z" fill="#2B2B2B" />
-      <path d="M130,10 C133,4 141,5 140,14 C139,23 135,33 129,44 L117,29 Z" fill="#2B2B2B" />
+      <path d="M54,11 C51,5 43,6 43,14 C44,22 48,32 55,42 L67,24 Z" fill="#2B2B2B" />
+      <path d="M146,11 C149,5 157,6 157,14 C156,22 152,32 145,42 L133,24 Z" fill="#2B2B2B" />
       {/* Cheeks */}
-      <circle cx="72" cy="118" r="11.5" fill="#E4553B" />
-      <circle cx="128" cy="118" r="11.5" fill="#E4553B" />
+      <circle cx="66" cy="120" r="12" fill="#E4553B" />
+      <circle cx="134" cy="120" r="12" fill="#E4553B" />
       {/* Eyes */}
-      <circle cx="83" cy="98" r="10.5" fill="#2B2B2B" />
-      <circle cx="117" cy="98" r="10.5" fill="#2B2B2B" />
-      <circle cx="86.5" cy="93.5" r="3.6" fill="#fff" />
-      <circle cx="120.5" cy="93.5" r="3.6" fill="#fff" />
+      <circle cx="80" cy="102" r="11" fill="#2B2B2B" />
+      <circle cx="120" cy="102" r="11" fill="#2B2B2B" />
+      <circle cx="84" cy="97" r="4" fill="#fff" />
+      <circle cx="124" cy="97" r="4" fill="#fff" />
+      <circle cx="77" cy="106" r="2" fill="#fff" />
+      <circle cx="117" cy="106" r="2" fill="#fff" />
       {/* Nose */}
-      <ellipse cx="100" cy="109" rx="2.4" ry="1.5" fill="#2B2B2B" />
-      {/* Happy open mouth with tongue */}
-      <path d="M100,112 C91,112 84,118 87,127 C90,136 110,136 113,127 C116,118 109,112 100,112 Z" fill="#8a2418" stroke="#2B2B2B" strokeWidth="3.5" strokeLinejoin="round" />
-      <path d="M90,128 C94,133 106,133 110,128 C106,125 94,125 90,128 Z" fill="#E4553B" />
+      <ellipse cx="100" cy="112" rx="2.4" ry="1.5" fill="#2B2B2B" />
+      {/* Gentle closed smile */}
+      <path d="M90,117 C94,124 106,124 110,117" fill="none" stroke="#2B2B2B" strokeWidth="4" strokeLinecap="round" />
     </svg>
   );
 }
