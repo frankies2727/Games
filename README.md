@@ -67,9 +67,10 @@ When a game ends, the final board stays on screen behind the result panel — hi
 Tap the **mini Pikachu** in the top-right of the home screen to jump into
 **Frankie's Projects** — a little gallery of other things I'm building. First up
 is **VibeCheck**: type any company (or tap a trending brand) to generate an
-immersive, scrollable visual story — finances, timeline, origin lore, cultural
-impact, and AI-generated art for each scene. Its generator uses the Gemini API
-(`GEMINI_API_KEY`); without a key the app still loads and just asks for one.
+immersive, scrollable visual story — the rundown, fast facts, a timeline, and
+fun facts. It pulls live data straight from **Wikipedia's public API** (search +
+article summary + infobox), so there's **no API key** and nothing to configure —
+it just works on the static site.
 
 Each project is a self-contained component under `src/projects/` registered in
 `src/projects/index.ts`, and is **lazy-loaded** so opening the games home screen

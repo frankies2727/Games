@@ -69,7 +69,7 @@ export function ProjectsGallery({ projects, onSelect, onBack }: ProjectsGalleryP
         </div>
 
         <footer className="text-center mt-16 text-[10px] font-mono uppercase tracking-widest text-[#6B7280]">
-          More projects landing soon · built with ⚡ by Frankie
+          More projects landing soon
         </footer>
       </div>
     </div>

@@ -15,7 +15,7 @@ export const PROJECTS: ProjectDefinition[] = [
     name: 'VibeCheck',
     tagline: 'The immersive company story generator.',
     description:
-      'Type any company or tap a trending brand to generate a highly visual, scrollable story — finances, timeline, origin lore, cultural impact and AI-generated art for each scene.',
+      'Type any company or tap a trending brand to generate a highly visual, scrollable story — the rundown, fast facts, a timeline and fun facts, pulled live from the open web. No API key needed.',
     emoji: '⚡',
     gradient: 'from-[#ccff00] via-[#8fae00] to-[#0a0a0a]',
     status: 'Live',
