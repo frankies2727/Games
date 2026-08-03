@@ -122,6 +122,94 @@ async function fetchImageAsDataUrl(src?: string | null): Promise<string | null> 
   }
 }
 
+// --- Wikidata: structured facts (key-free, CORS-enabled) --------------------
+
+const WIKIDATA = 'https://www.wikidata.org/w/api.php';
+
+// Given a Wikidata Q-id (from the Wikipedia summary's `wikibase_item`), pull a
+// few high-confidence structured facts and resolve their entity references to
+// English labels. Used to fill gaps the article infobox doesn't cover.
+async function wikidataFacts(qid?: string | null): Promise<WikidataFacts | null> {
+  if (!qid) return null;
+  try {
+    const r = await fetch(`${WIKIDATA}?action=wbgetentities&ids=${encodeURIComponent(qid)}&props=claims&format=json&origin=*`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const claims: Record<string, any[]> = (await r.json())?.entities?.[qid]?.claims || {};
+    const firstYear = (p: string) => {
+      const t = claims[p]?.[0]?.mainsnak?.datavalue?.value?.time as string | undefined;
+      const m = t && t.match(/\+(\d{4})/);
+      return m ? m[1] : '';
+    };
+    const firstStr = (p: string) => (claims[p]?.[0]?.mainsnak?.datavalue?.value as string) || '';
+    const entityIds = (p: string) =>
+      (claims[p] || []).map((c) => c?.mainsnak?.datavalue?.value?.id as string).filter(Boolean);
+
+    const hqId = entityIds('P159')[0];
+    const industryId = entityIds('P452')[0];
+    const ceoId = entityIds('P169')[0];
+    const founderIds = entityIds('P112');
+
+    const needed = [...new Set([hqId, industryId, ceoId, ...founderIds].filter(Boolean))];
+    const labels: Record<string, string> = {};
+    if (needed.length) {
+      const r2 = await fetch(`${WIKIDATA}?action=wbgetentities&props=labels&languages=en&ids=${needed.join('|')}&format=json&origin=*`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ents: Record<string, any> = (await r2.json())?.entities || {};
+      for (const [id, e] of Object.entries(ents)) labels[id] = e?.labels?.en?.value || '';
+    }
+    return {
+      founded: firstYear('P571'),
+      website: firstStr('P856').replace(/^https?:\/\//, '').replace(/\/$/, '').trim() || undefined,
+      industry: labels[industryId] || '',
+      headquarters: labels[hqId] || '',
+      ceo: labels[ceoId] || '',
+      founders: founderIds.map((id) => labels[id]).filter(Boolean),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// --- Openverse: openly-licensed images (key-free, CORS-enabled) --------------
+
+type ImageCredit = { title: string; creator: string; license: string; landing: string };
+
+// Find a relevant, freely-reusable image for a query. Restricted to
+// commercial-use + derivatives-OK licenses (cc0/pdm/by/by-sa) and filtered so a
+// result actually mentions the company (avoids e.g. Patagonia-the-region photos).
+// Returns null when nothing suitable is found — the caller keeps its gradient.
+async function openverseImage(
+  query: string,
+  tokens: string[],
+): Promise<{ src: string; credit: ImageCredit } | null> {
+  try {
+    const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=12&mature=false&license=cc0,pdm,by,by-sa`;
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results: any[] = (await r.json())?.results || [];
+    const want = tokens.filter((t) => t.length >= 3).map((t) => t.toLowerCase());
+    const match = results.find((im) => {
+      if (!im?.url) return false;
+      if (!want.length) return true;
+      const hay = `${im.title || ''} ${(im.tags || []).map((t: { name?: string }) => t?.name || '').join(' ')}`.toLowerCase();
+      return want.some((t) => hay.includes(t));
+    });
+    if (!match) return null;
+    return {
+      src: match.url,
+      credit: {
+        title: match.title || 'Untitled',
+        creator: match.creator || 'Unknown',
+        license: (match.license || '').toUpperCase(),
+        landing: match.foreign_landing_url || match.url,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 // --- Wikitext cleaning + parsing --------------------------------------------
 
 function cleanWiki(input: string): string {
@@ -361,20 +449,36 @@ function mineNuggets(text: string, usedYears: Set<string>): string[] {
   return picks.slice(0, 5);
 }
 
+type WikidataFacts = {
+  founded?: string;
+  website?: string;
+  industry?: string;
+  headquarters?: string;
+  ceo?: string;
+  founders?: string[];
+};
+
 function buildCompanyData(
   title: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   summary: any,
   wikitext: string,
   extract: string,
+  wd?: WikidataFacts | null,
 ): CompanyData {
   const ib = extractInfobox(wikitext);
   const val = (...keys: string[]) => {
     for (const k of keys) if (ib[k]) return cleanWiki(ib[k]);
     return '';
   };
+  // Prefer the infobox value; fall back to Wikidata's structured claim.
+  const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const orWd = (infoboxVal: string, wdVal?: string) => infoboxVal || capitalize(wdVal || '');
 
-  const founders = parseList(ib['founders'] || ib['founder'] || ib['foundation'] || '');
+  const founders =
+    parseList(ib['founders'] || ib['founder'] || ib['foundation'] || '') ||
+    [];
+  const foundersFinal = founders.length ? founders : wd?.founders || [];
 
   const hq =
     val('headquarters', 'hq_location', 'location') ||
@@ -389,19 +493,20 @@ function buildCompanyData(
     const cleaned = cleanWiki(rawSite).replace(/^https?:\/\//, '').replace(/\/$/, '').trim();
     if (cleaned && /\./.test(cleaned) && !/\s/.test(cleaned)) website = cleaned;
   }
+  if (!website && wd?.website) website = wd.website;
 
   const facts: Fact[] = [];
   const push = (label: string, value: string) => {
     if (value && value.length < 120) facts.push({ label, value });
   };
-  push('Founded', val('founded', 'foundation', 'formed', 'established'));
-  push('Industry', val('industry', 'type'));
-  push('Headquarters', hq);
+  push('Founded', orWd(val('founded', 'foundation', 'formed', 'established'), wd?.founded));
+  push('Industry', orWd(val('industry', 'type'), wd?.industry));
+  push('Headquarters', orWd(hq, wd?.headquarters));
   push('Ticker', ticker);
   push('Revenue', val('revenue'));
   push('Employees', val('num_employees', 'employees'));
   push('Area served', val('area_served'));
-  push('CEO', parseList(ib['key_people'] || '')[0] || '');
+  push('CEO', orWd(parseList(ib['key_people'] || '')[0] || '', wd?.ceo));
 
   const usedYears = new Set<string>();
   const timeline = mineTimeline(extract);
@@ -417,7 +522,7 @@ function buildCompanyData(
     summary: intro,
     wikiUrl: summary?.content_urls?.desktop?.page || `${WIKI}/wiki/${encodeURIComponent(title)}`,
     website,
-    founders,
+    founders: foundersFinal,
     facts: facts.slice(0, 8),
     timeline,
     nuggets,
@@ -462,6 +567,7 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
   const [data, setData] = useState<CompanyData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [image, setImage] = useState<string | null | undefined>(undefined);
+  const [imageCredit, setImageCredit] = useState<ImageCredit | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
@@ -484,6 +590,7 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     setLoading(false);
     setQuery('');
     setImage(undefined);
+    setImageCredit(null);
     setCurrentSlideIndex(0);
     const url = new URL(window.location.href);
     if (url.searchParams.has('q')) {
@@ -500,6 +607,7 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     setError(null);
     setData(null);
     setImage(undefined);
+    setImageCredit(null);
 
     const pushUrl = () => {
       const url = new URL(window.location.href);
@@ -507,14 +615,25 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       window.history.pushState({}, '', url.toString());
     };
 
+    // Distinctive words from the query, used to keep Openverse images on-topic.
+    const imgTokens = normalizeText(searchQuery).split(' ').filter((t) => t.length >= 3 && !GENERIC_TOKENS.has(t));
+
     // Featured first: a pre-generated profile (covers niche/private companies)
     // resolves instantly, no network needed. Otherwise fall back to Wikipedia.
     const featured = findFeatured(searchQuery);
     if (featured) {
       pushUrl();
       setData(buildFromFeatured(featured));
-      setImage(null); // no photo for generated profiles — use the gradient scene
+      setImage(undefined);
       setLoading(false);
+      // Try an openly-licensed image; keep the gradient if none is a good fit.
+      const ov = await openverseImage(featured.name, [featured.slug.replace(/-/g, ' '), ...imgTokens]);
+      if (ov) {
+        setImageCredit(ov.credit);
+        setImage(await fetchImageAsDataUrl(ov.src));
+      } else {
+        setImage(null);
+      }
       return;
     }
 
@@ -529,22 +648,32 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       }
       const { title, summary } = resolved;
 
-      const [wikitext, extract] = await Promise.all([
+      const [wikitext, extract, wd] = await Promise.all([
         wikiWikitext(title).catch(() => ''),
         wikiExtract(title).catch(() => ''),
+        wikidataFacts(summary?.wikibase_item).catch(() => null),
       ]);
 
-      const built = buildCompanyData(title, summary, wikitext, extract);
+      const built = buildCompanyData(title, summary, wikitext, extract, wd);
       pushUrl();
 
       setData(built);
       setLoading(false);
 
-      // Pull the article's lead image (converted to a data URL so the
-      // screenshot-download feature can capture it).
+      // Prefer the article's own lead image (most relevant). If the article has
+      // none, fall back to a freely-licensed Openverse image.
       const imgSrc = summary?.originalimage?.source || summary?.thumbnail?.source || null;
-      const resolvedImage = await fetchImageAsDataUrl(imgSrc);
-      setImage(resolvedImage);
+      if (imgSrc) {
+        setImage(await fetchImageAsDataUrl(imgSrc));
+      } else {
+        const ov = await openverseImage(built.name, imgTokens);
+        if (ov) {
+          setImageCredit(ov.credit);
+          setImage(await fetchImageAsDataUrl(ov.src));
+        } else {
+          setImage(null);
+        }
+      }
     } catch (err) {
       console.error(err);
       setError('The web glitched out. Give it another shot.');
@@ -650,6 +779,17 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
               </p>
             )}
           </div>
+          {imageCredit && (
+            <a
+              href={imageCredit.landing}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-3 left-4 z-20 text-[10px] text-white/60 hover:text-white/90 transition-colors max-w-[70vw] truncate"
+              title="Image source"
+            >
+              Image: {imageCredit.title} · {imageCredit.creator} ({imageCredit.license}) · Openverse
+            </a>
+          )}
         </div>
       );
     }
