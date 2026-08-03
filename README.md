@@ -68,9 +68,17 @@ Tap the **mini Pikachu** in the top-right of the home screen to jump into
 **Frankie's Projects** — a little gallery of other things I'm building. First up
 is **VibeCheck**: type any company (or tap a trending brand) to generate an
 immersive, scrollable visual story — the rundown, fast facts, a timeline, and
-fun facts. It pulls live data straight from **Wikipedia's public API** (search +
-article summary + infobox), so there's **no API key** and nothing to configure —
-it just works on the static site.
+fun facts. It has three data sources you can pick between:
+
+- **Wikipedia** (default, no setup) — real data from Wikipedia's public API, key-free.
+  Great for established brands; niche/private companies may not have an article.
+- **Ollama · local** — generate with a local model like Google's Gemma
+  (`ollama run gemma3`). Works on your own machine; answers come from the model's
+  memory, so it's a vibe read, not live data.
+- **Live · grounded** (optional) — live, web-grounded answers for *everyone*, with
+  cited sources, via a tiny Cloudflare Worker that holds a Gemini key server-side.
+  Set it up (no coding) with [docs/VIBECHECK_HOSTING.md](docs/VIBECHECK_HOSTING.md);
+  until then the "Live" toggle is simply hidden.
 
 Each project is a self-contained component under `src/projects/` registered in
 `src/projects/index.ts`, and is **lazy-loaded** so opening the games home screen

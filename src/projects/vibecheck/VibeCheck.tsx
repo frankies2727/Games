@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Zap, Sun, Moon, BookOpen, Building2, Calendar, Sparkles, AlertCircle, Share2, Download, Loader2, ArrowLeft, ExternalLink } from 'lucide-react';
+import { Search, Zap, Sun, Moon, BookOpen, Building2, Calendar, Sparkles, AlertCircle, Share2, Download, Loader2, ArrowLeft, ExternalLink, TrendingUp } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { toPng } from 'html-to-image';
 import {
@@ -246,9 +246,18 @@ type CompanyData = {
   facts: Fact[];
   timeline: { year: string; event: string }[];
   nuggets: string[];
-  /** Where this profile came from, so the UI can label AI-generated content. */
-  source: 'wikipedia' | 'ollama';
+  /** Where this profile came from, so the UI can label the content. */
+  source: 'wikipedia' | 'ollama' | 'hosted';
+  /** Web pages the hosted model cited (grounding sources), if any. */
+  sources?: { title: string; url: string }[];
 };
+
+// URL of the optional hosted "brain" (a Cloudflare Worker doing Gemini + Google
+// Search grounding). Set at build time via the VITE_VIBECHECK_API_URL env var
+// (a GitHub repo variable in the deploy workflow). Empty => the Live source is
+// simply hidden and the app runs on Wikipedia/Ollama.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const HOSTED_API_URL: string = ((import.meta as any).env?.VITE_VIBECHECK_API_URL || '').trim();
 
 function splitSentences(text: string): string[] {
   return text
@@ -364,9 +373,13 @@ function buildCompanyData(
   };
 }
 
-// Map a locally-generated (Ollama/Gemma) profile onto the same shape the slides
-// consume, so the whole immersive UI is reused regardless of data source.
-function buildFromOllama(p: OllamaProfile): CompanyData {
+// Map a generated profile (local Ollama/Gemma, or the hosted Gemini brain) onto
+// the same shape the slides consume, so the whole immersive UI is reused
+// regardless of data source.
+function buildFromProfile(
+  p: OllamaProfile & { sources?: { title: string; url: string }[] },
+  source: 'ollama' | 'hosted',
+): CompanyData {
   const facts: Fact[] = [];
   const push = (label: string, value: string) => {
     if (value && value.length < 120) facts.push({ label, value });
@@ -385,7 +398,43 @@ function buildFromOllama(p: OllamaProfile): CompanyData {
     facts,
     timeline: [...p.timeline].sort((a, b) => (+a.year || 0) - (+b.year || 0)).slice(0, 6),
     nuggets: p.notableFacts,
-    source: 'ollama',
+    source,
+    sources: Array.isArray(p.sources) ? p.sources.filter((s) => s && s.url).slice(0, 5) : undefined,
+  };
+}
+
+// Ask the hosted brain (Cloudflare Worker → Gemini + Google Search) for a
+// grounded profile. Throws a friendly reason on failure.
+async function fetchHostedProfile(query: string): Promise<OllamaProfile & { sources?: { title: string; url: string }[] }> {
+  let res: Response;
+  try {
+    res = await fetch(HOSTED_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+  } catch {
+    throw new Error('unreachable');
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.profile) throw new Error(data?.error || `http-${res.status}`);
+  const p = data.profile;
+  return {
+    name: String(p.name || query),
+    tagline: String(p.tagline || ''),
+    rundown: String(p.rundown || ''),
+    founded: String(p.founded || ''),
+    industry: String(p.industry || ''),
+    headquarters: String(p.headquarters || ''),
+    founders: Array.isArray(p.founders) ? p.founders.map(String) : [],
+    timeline: Array.isArray(p.timeline)
+      ? p.timeline
+          .map((t: { year?: unknown; event?: unknown }) => ({ year: String(t?.year ?? ''), event: String(t?.event ?? '') }))
+          .filter((t: { year: string; event: string }) => t.year && t.event)
+      : [],
+    notableFacts: Array.isArray(p.notableFacts) ? p.notableFacts.map(String) : [],
+    website: String(p.website || '').replace(/^https?:\/\//, '').replace(/\/$/, ''),
+    sources: Array.isArray(p.sources) ? p.sources : undefined,
   };
 }
 
@@ -418,9 +467,9 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
-  // Data source: Wikipedia (real, key-free, works everywhere) or a local
-  // Ollama/Gemma model (generated, works only where Ollama runs).
-  const [source, setSource] = useState<'wikipedia' | 'ollama'>('wikipedia');
+  // Data source: hosted brain (Gemini + web grounding, works for everyone when
+  // configured), Wikipedia (real, key-free), or a local Ollama/Gemma model.
+  const [source, setSource] = useState<'hosted' | 'wikipedia' | 'ollama'>(HOSTED_API_URL ? 'hosted' : 'wikipedia');
   const [ollamaUp, setOllamaUp] = useState<boolean | null>(null);
   const [ollamaUrl, setOllamaUrl] = useState(() => localStorage.getItem('vc_ollama_url') || DEFAULT_OLLAMA_URL);
   const [ollamaModel, setOllamaModel] = useState(() => localStorage.getItem('vc_ollama_model') || DEFAULT_OLLAMA_MODEL);
@@ -440,7 +489,9 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     checkOllama(ollamaUrl).then((up) => {
       if (cancelled) return;
       setOllamaUp(up);
-      if (up) setSource('ollama');
+      // Only auto-pick Ollama if the hosted brain isn't configured — the hosted
+      // source is the better default (grounded, works for everyone).
+      if (up && !HOSTED_API_URL) setSource('ollama');
     });
     return () => {
       cancelled = true;
@@ -470,11 +521,31 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       window.history.pushState({}, '', url.toString());
     };
 
+    if (source === 'hosted') {
+      try {
+        const profile = await fetchHostedProfile(searchQuery);
+        pushUrl();
+        setData(buildFromProfile(profile, 'hosted'));
+        setImage(null);
+      } catch (err) {
+        console.error(err);
+        const reason = err instanceof Error ? err.message : '';
+        setError(
+          reason === 'unreachable'
+            ? "Couldn't reach the live service. Check your connection and try again."
+            : `The live service had trouble with that one. Try again, or switch to Wikipedia.`,
+        );
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (source === 'ollama') {
       try {
         const profile = await generateProfile(ollamaUrl, ollamaModel, searchQuery);
         pushUrl();
-        setData(buildFromOllama(profile));
+        setData(buildFromProfile(profile, 'ollama'));
         setImage(null); // text model → no photo, use the gradient scene
       } catch (err) {
         console.error(err);
@@ -711,6 +782,24 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
                   <ExternalLink className="w-6 h-6 text-[#ccff00] group-hover:translate-x-1 transition-transform" />
                 </a>
               )}
+              {data?.source === 'hosted' && data.sources && data.sources.length > 0 && (
+                <div className="bg-black/40 p-4 md:p-5 rounded-2xl border border-white/10">
+                  <div className="text-[10px] md:text-xs text-gray-400 uppercase tracking-widest mb-3">Grounded in these sources</div>
+                  <div className="space-y-2">
+                    {data.sources.map((s, i) => (
+                      <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-gray-200 hover:text-[#ccff00] transition-colors group">
+                        <ExternalLink className="w-4 h-4 shrink-0 text-[#00ffff]" />
+                        <span className="truncate group-hover:underline">{s.title}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data?.source === 'hosted' && (
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Generated live with web search grounding. It's usually accurate, but AI can still slip — verify anything important.
+                </p>
+              )}
               {data?.source === 'ollama' && (
                 <p className="text-sm text-gray-400 leading-relaxed bg-black/40 p-4 rounded-2xl border border-white/10">
                   Generated locally by <span className="text-[#ccff00] font-bold">{ollamaModel}</span> via Ollama, from the
@@ -808,9 +897,19 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
                   Type any company name below or select a trending brand to generate an immersive, highly visual story.
                 </p>
 
-                {/* Data-source picker: real Wikipedia data vs. a local Ollama model. */}
+                {/* Data-source picker: hosted grounded brain / Wikipedia / local Ollama. */}
                 <div className="w-full max-w-2xl mx-auto mb-8 flex flex-col items-center gap-3">
-                  <div className="inline-flex p-1 rounded-full bg-white dark:bg-[#141414] border border-gray-200 dark:border-white/10 shadow-sm">
+                  <div className="inline-flex p-1 rounded-full bg-white dark:bg-[#141414] border border-gray-200 dark:border-white/10 shadow-sm flex-wrap justify-center">
+                    {HOSTED_API_URL && (
+                      <button
+                        type="button"
+                        onClick={() => setSource('hosted')}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 ${source === 'hosted' ? 'bg-[#ccff00] text-black' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                      >
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        Live · grounded
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setSource('wikipedia')}
@@ -828,7 +927,11 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
                     </button>
                   </div>
 
-                  {source === 'wikipedia' ? (
+                  {source === 'hosted' ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-500 text-center max-w-md">
+                      Live, grounded answers — searches the web and cites its sources. Works for everyone, including niche and private companies.
+                    </p>
+                  ) : source === 'wikipedia' ? (
                     <p className="text-xs text-gray-500 dark:text-gray-500 text-center max-w-md">
                       Real, key-free data from Wikipedia. Great for established brands; very new or private companies may not be covered.
                     </p>

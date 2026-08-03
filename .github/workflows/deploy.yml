@@ -27,6 +27,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          # Optional: URL of the hosted VibeCheck brain (Cloudflare Worker).
+          # Set this in GitHub → Settings → Secrets and variables → Actions →
+          # Variables, as a repository variable named VIBECHECK_API_URL. If it's
+          # empty, VibeCheck simply hides the "Live" source and runs on
+          # Wikipedia/Ollama. No secret keys go here — the Gemini key lives only
+          # in the Worker.
+          VITE_VIBECHECK_API_URL: ${{ vars.VIBECHECK_API_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
