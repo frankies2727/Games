@@ -18,8 +18,7 @@ import { motion, AnimatePresence } from 'motion/react';
 // black no-data gaps), but its imagery only goes back to late 2015. So we use
 // VIIRS for recent years and fall back to MODIS Terra (available from 2000)
 // for older ones. Both share the same EPSG:4326 250m tile grid.
-const ZOOM = 6; // ~one tile spanning a wide region, matching the reference.
-const TILE = 512;
+const TILE = 512; // rendered frame size, px
 const VIIRS_FROM_YEAR = 2016;
 const LAYER_VIIRS = 'VIIRS_SNPP_CorrectedReflectance_TrueColor';
 const LAYER_MODIS = 'MODIS_Terra_CorrectedReflectance_TrueColor';
@@ -38,38 +37,46 @@ const rangeSource = (fromYear: number, toYear: number) => {
       ? 'VIIRS'
       : 'MODIS Terra';
 };
-const GIBS = (layer: string, date: string, row: number, col: number) =>
-  `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/${layer}/default/${date}/250m/${ZOOM}/${row}/${col}.jpg`;
+// WMS GetMap lets us request a square box CENTERED on the exact coordinates, so
+// the searched place is always dead-centre (unlike fixed grid tiles, where it
+// landed wherever it fell). `span` is the box width in degrees — smaller = more
+// zoomed in. CORS-enabled, so the canvas/export stay untainted.
+const gibsWms = (
+  layer: string,
+  date: string,
+  lat: number,
+  lon: number,
+  span: number,
+) => {
+  const half = span / 2;
+  const south = Math.max(-90, lat - half);
+  const north = Math.min(90, lat + half);
+  const west = lon - half;
+  const east = lon + half;
+  const bbox = `${west},${south},${east},${north}`; // minLon,minLat,maxLon,maxLat
+  return (
+    `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap` +
+    `&VERSION=1.1.1&LAYERS=${layer}&SRS=EPSG:4326&BBOX=${bbox}` +
+    `&WIDTH=${TILE}&HEIGHT=${TILE}&FORMAT=image/jpeg&TIME=${date}`
+  );
+};
 
 const MODIS_START = '2000-02-24'; // earliest MODIS Terra true-colour imagery
 const MAX_FRAMES = 300; // cap frames so long ranges stay smooth on memory
 const DAY = 86400000;
 
-// EPSG:4326 tile grid math (ported from the reference notebook).
-const tileWidthDeg = 288.0 / 2 ** ZOOM;
-const getTile = (lat: number, lon: number) => ({
-  row: Math.floor((90 - lat) / tileWidthDeg),
-  col: Math.floor((lon + 180) / tileWidthDeg),
-});
-const getPinRatio = (lat: number, lon: number, row: number, col: number) => {
-  const tileLonStart = col * tileWidthDeg - 180;
-  const tileLatStart = 90 - row * tileWidthDeg;
-  return {
-    x: (lon - tileLonStart) / tileWidthDeg,
-    y: (tileLatStart - lat) / tileWidthDeg,
-  };
-};
+// Zoom presets = box width in degrees. ~1.2° ≈ native 250m resolution at 512px;
+// wider views trade detail for regional context.
+const ZOOMS: { label: string; span: number }[] = [
+  { label: 'City', span: 1.2 },
+  { label: 'Region', span: 3 },
+  { label: 'Wide', span: 8 },
+];
 
 interface Frame {
   date: string;
   url: string;
   img: HTMLImageElement;
-}
-
-interface Pin {
-  x: number; // 0..1 within the tile
-  y: number;
-  label: string;
 }
 
 const pad = (n: number) => n.toString().padStart(2, '0');
@@ -105,6 +112,7 @@ export function SatelliteMode() {
   const [fromDate, setFromDate] = useState(() => toISO(todayUTC - 366 * DAY));
   const [toDate, setToDate] = useState(() => toISO(todayUTC - DAY));
   const [step, setStep] = useState(7);
+  const [span, setSpan] = useState(1.2); // zoom: box width in degrees
   const [fps, setFps] = useState(8);
 
   const [loading, setLoading] = useState(false);
@@ -113,7 +121,7 @@ export function SatelliteMode() {
   const [progressMsg, setProgressMsg] = useState('');
 
   const [frames, setFrames] = useState<Frame[]>([]);
-  const [pin, setPin] = useState<Pin | null>(null);
+  const [label, setLabel] = useState(''); // place name shown on the centred pin
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -220,7 +228,7 @@ export function SatelliteMode() {
     setError(null);
     setIsPlaying(false);
     setFrames([]);
-    setPin(null);
+    setLabel('');
     setCurrentIndex(0);
     setProgress(0);
     setProgressMsg('Locating place…');
@@ -241,9 +249,9 @@ export function SatelliteMode() {
       }
 
       const { latitude: lat, longitude: lon } = hit;
-      const { row, col } = getTile(lat, lon);
-      const ratio = getPinRatio(lat, lon, row, col);
-      const label = [hit.name, hit.country_code].filter(Boolean).join(', ');
+      const placeLabel = [hit.name, hit.country_code]
+        .filter(Boolean)
+        .join(', ');
 
       // 2. Fetch tiles across the range. Source is chosen per date (VIIRS for
       // 2016+, MODIS Terra for older), so ranges crossing 2016 blend both.
@@ -267,7 +275,9 @@ export function SatelliteMode() {
         if (cancelRef.current) return;
         const batch = dates.slice(i, i + CONCURRENCY);
         const results = await Promise.all(
-          batch.map((d) => loadTile(GIBS(layerForDate(d), d, row, col), d)),
+          batch.map((d) =>
+            loadTile(gibsWms(layerForDate(d), d, lat, lon, span), d),
+          ),
         );
         results.forEach((r) => r && loaded.push(r));
         done += batch.length;
@@ -285,7 +295,7 @@ export function SatelliteMode() {
         return;
       }
 
-      setPin({ x: ratio.x, y: ratio.y, label });
+      setLabel(placeLabel);
       setFrames(loaded);
       setCurrentIndex(0);
       setLoading(false);
@@ -317,25 +327,25 @@ export function SatelliteMode() {
     const drawFrame = (frame: Frame) => {
       ctx.drawImage(frame.img, 0, 0, TILE, TILE);
 
-      // City pin + label.
-      if (pin) {
-        const px = pin.x * TILE;
-        const py = pin.y * TILE;
-        ctx.beginPath();
-        ctx.arc(px, py, 6, 0, Math.PI * 2);
-        ctx.fillStyle = '#ef4444';
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#000';
-        ctx.stroke();
+      // Centred pin + label (the place is always at the frame centre).
+      const px = TILE / 2;
+      const py = TILE / 2;
+      ctx.beginPath();
+      ctx.arc(px, py, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#000';
+      ctx.stroke();
 
+      if (label) {
         ctx.font = 'bold 22px sans-serif';
         ctx.textAlign = 'center';
         ctx.lineWidth = 4;
         ctx.strokeStyle = 'rgba(0,0,0,0.85)';
         ctx.fillStyle = '#fff';
-        ctx.strokeText(pin.label, px, py - 14);
-        ctx.fillText(pin.label, px, py - 14);
+        ctx.strokeText(label, px, py - 14);
+        ctx.fillText(label, px, py - 14);
       }
 
       // Date, bottom-right.
@@ -365,7 +375,7 @@ export function SatelliteMode() {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `satellite-timelapse-${(pin?.label || place)
+          a.download = `satellite-timelapse-${(label || place)
             .replace(/[^a-z0-9]/gi, '_')
             .toLowerCase()}-${fromDate}_to_${toDate}.webm`;
           a.click();
@@ -478,7 +488,28 @@ export function SatelliteMode() {
               </button>
             ))}
           </div>
-          <span className="ml-auto text-neutral-500 hidden sm:inline">
+
+          <span className="text-neutral-500 font-mono uppercase tracking-widest ml-2">
+            Zoom
+          </span>
+          <div className="flex items-center gap-1 bg-neutral-800 rounded-full px-1 py-1">
+            {ZOOMS.map((z) => (
+              <button
+                key={z.span}
+                type="button"
+                onClick={() => setSpan(z.span)}
+                className={`px-3 py-1 rounded-full font-medium transition-colors ${
+                  span === z.span
+                    ? 'bg-neutral-700 text-sky-400'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                {z.label}
+              </button>
+            ))}
+          </div>
+
+          <span className="ml-auto text-neutral-500 hidden lg:inline">
             {plan.valid ? (
               <>
                 ≈ <span className="text-neutral-300">{plan.count}</span> frames ·
@@ -560,18 +591,15 @@ export function SatelliteMode() {
                 aria-label={`Satellite ${current.date}`}
                 className="w-full h-full block select-none"
               />
-              {/* Pin */}
-              {pin && (
-                <div
-                  className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                  style={{ left: `${pin.x * 100}%`, top: `${pin.y * 100}%` }}
-                >
+              {/* Centred pin — the place is always at the middle of the frame */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none">
+                {label && (
                   <span className="mb-1 px-1.5 py-0.5 text-[10px] font-semibold text-white bg-black/60 rounded whitespace-nowrap">
-                    {pin.label}
+                    {label}
                   </span>
-                  <span className="w-3 h-3 rounded-full bg-red-500 border-2 border-black shadow-md" />
-                </div>
-              )}
+                )}
+                <span className="w-3 h-3 rounded-full bg-red-500 border-2 border-black shadow-md" />
+              </div>
               {/* Date */}
               <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-md bg-black/60 text-white text-sm font-medium tabular-nums">
                 {current.date}
