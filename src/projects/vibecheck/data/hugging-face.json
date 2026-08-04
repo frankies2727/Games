@@ -3,6 +3,7 @@
   "slug": "hugging-face",
   "sector": "AI",
   "tagline": "Making ML accessible, one transformer at a time.",
+  "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/Hf-logo-with-title.svg/960px-Hf-logo-with-title.svg.png",
   "rundown": "Hugging Face is building the infrastructure for the future of AI, primarily through its popular transformers library for natural language processing. They've created a vibrant community-driven platform where users can share, discover, and deploy cutting-edge machine learning models and datasets. Essentially, they’re democratizing access to powerful NLP tech.",
   "founded": "2016",
   "industry": "Artificial Intelligence / Machine Learning",
