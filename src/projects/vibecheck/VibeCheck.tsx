@@ -153,6 +153,15 @@ function commonsFileUrl(filename: string, width = 1024): string {
   return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=${width}`;
 }
 
+// Is this image a logo/wordmark rather than a photo? Logos need contain-fit on
+// a light card (many wordmarks are solid black and vanish on the dark hero),
+// whereas photos look best as a full-bleed cover. Company lead images and
+// Wikidata P154 files are conventionally named "…logo…", which classifies the
+// common cases; ambiguous images fall through to the (safe) photo treatment.
+function looksLikeLogo(url?: string | null): boolean {
+  return !!url && /logo|wordmark/i.test(url);
+}
+
 // --- Wikidata: structured facts (key-free, CORS-enabled) --------------------
 
 const WIKIDATA = 'https://www.wikidata.org/w/api.php';
@@ -612,6 +621,9 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
   const [data, setData] = useState<CompanyData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [image, setImage] = useState<string | null | undefined>(undefined);
+  // A logo (vs. a photo) is rendered differently — contained on a white card
+  // so dark wordmarks stay visible — instead of a full-bleed darkened cover.
+  const [imageIsLogo, setImageIsLogo] = useState(false);
   const [imageCredit, setImageCredit] = useState<ImageCredit | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -635,6 +647,7 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     setLoading(false);
     setQuery('');
     setImage(undefined);
+    setImageIsLogo(false);
     setImageCredit(null);
     setCurrentSlideIndex(0);
     const url = new URL(window.location.href);
@@ -652,6 +665,7 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     setError(null);
     setData(null);
     setImage(undefined);
+    setImageIsLogo(false);
     setImageCredit(null);
 
     const pushUrl = () => {
@@ -678,14 +692,21 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       //      last resort for companies the live sources can't cover,
       // and only fall back to the card gradient if all three come up empty.
       let src: string | null = await wikiImageFor(featured.name);
+      let isLogo = looksLikeLogo(src);
       if (!src) {
         const ov = await openverseImage(featured.name, [featured.slug.replace(/-/g, ' '), ...imgTokens]);
         if (ov) {
           setImageCredit(ov.credit);
           src = ov.src;
+          isLogo = false;
         }
       }
-      if (!src) src = featured.image || null;
+      // Curated fallbacks are hand-picked logos, so treat them as such.
+      if (!src && featured.image) {
+        src = featured.image;
+        isLogo = true;
+      }
+      setImageIsLogo(!!src && isLogo);
       setImage(src ? await fetchImageAsDataUrl(src) : null);
       return;
     }
@@ -720,14 +741,21 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       //   3. a freely-licensed Openverse photo,
       // and only fall back to the gradient if all three come up empty.
       let imgSrc: string | null =
-        summary?.originalimage?.source || summary?.thumbnail?.source || wd?.logo || null;
+        summary?.originalimage?.source || summary?.thumbnail?.source || null;
+      let isLogo = looksLikeLogo(imgSrc);
+      if (!imgSrc && wd?.logo) {
+        imgSrc = wd.logo;
+        isLogo = true;
+      }
       if (!imgSrc) {
         const ov = await openverseImage(built.name, imgTokens);
         if (ov) {
           setImageCredit(ov.credit);
           imgSrc = ov.src;
+          isLogo = false;
         }
       }
+      setImageIsLogo(!!imgSrc && isLogo);
       setImage(imgSrc ? await fetchImageAsDataUrl(imgSrc) : null);
     } catch (err) {
       console.error(err);
@@ -802,7 +830,7 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
         <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-gray-100 dark:bg-[#111]">
           <div className="w-12 h-12 border-4 border-gray-300 dark:border-white/10 border-t-[#ccff00] rounded-full animate-spin" />
         </div>
-      ) : image ? (
+      ) : image && !imageIsLogo ? (
         <motion.img
           initial={{ scale: 1.12, opacity: 0 }}
           animate={{ scale: 1.04, opacity: 1 }}
@@ -812,6 +840,9 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
           className="w-full h-full object-cover"
         />
       ) : (
+        // Logos and the no-image case share a branded gradient backdrop; a logo
+        // is shown crisply on a light card by the slide itself, not stretched
+        // full-bleed here (dark wordmarks would vanish into the overlay).
         <div className="w-full h-full" style={{ background: `radial-gradient(circle at 30% 20%, ${accent}55, transparent 60%), #0a0a0a` }} />
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/25" />
@@ -825,6 +856,15 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
         <div className="absolute inset-0 w-full h-full flex items-center justify-center">
           <SceneBg accent={slide.accent} />
           <div className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 py-8 flex flex-col items-center text-center overflow-y-auto max-h-[85vh] custom-scrollbar">
+            {image && imageIsLogo && (
+              <div className="mb-6 sm:mb-8 bg-white rounded-3xl px-8 py-6 sm:px-12 sm:py-8 shadow-2xl shadow-black/50 max-w-[85%]">
+                <img
+                  src={image}
+                  alt={`${data?.name} logo`}
+                  className="max-h-[14vh] sm:max-h-[18vh] max-w-full object-contain"
+                />
+              </div>
+            )}
             <h2 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter uppercase mb-4 sm:mb-6 text-white drop-shadow-[0_5px_15px_rgba(0,0,0,0.8)] max-w-full break-words leading-tight">
               {data?.name}
             </h2>
@@ -852,6 +892,11 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     return (
       <div className="absolute inset-0 w-full h-full flex items-center justify-center md:justify-start md:pl-24 p-6">
         <SceneBg accent={slide.accent} />
+        {image && imageIsLogo && (
+          <div className="absolute top-24 right-6 z-20 hidden lg:block bg-white/95 rounded-2xl px-4 py-3 shadow-xl shadow-black/40">
+            <img src={image} alt="" className="h-8 xl:h-10 max-w-[180px] object-contain" />
+          </div>
+        )}
         <div className="relative z-10 w-full max-w-2xl bg-black/70 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 md:p-12 shadow-2xl overflow-y-auto max-h-[80vh] custom-scrollbar">
           <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
             {slide.icon}
