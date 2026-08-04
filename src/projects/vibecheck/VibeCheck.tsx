@@ -88,6 +88,31 @@ async function resolveEntity(query: string): Promise<{ title: string; summary: a
   return { title, summary };
 }
 
+// Resolve a free-text company name to its Wikipedia lead image (usually the
+// logo or a hero shot). Key-free and CORS-enabled. Used to give featured
+// profiles a real company image even when Openverse has nothing on-topic —
+// most featured companies still have a Wikipedia article to borrow from.
+async function wikiImageFor(query: string): Promise<string | null> {
+  try {
+    const title = await wikiSearchTitle(query);
+    if (!title) return null;
+    let summary = await wikiSummary(title).catch(() => null);
+    // Bias toward the company: a bare name like "Patagonia" resolves to the
+    // region (a map image), so if the first hit isn't company-shaped, retry
+    // with a "company" hint before giving up.
+    if (!summary || !looksLikeCompany(summary)) {
+      const alt = await wikiSearchTitle(`${query} company`);
+      if (alt && alt !== title) {
+        const altSummary = await wikiSummary(alt).catch(() => null);
+        if (altSummary && looksLikeCompany(altSummary)) summary = altSummary;
+      }
+    }
+    return summary?.originalimage?.source || summary?.thumbnail?.source || null;
+  } catch {
+    return null;
+  }
+}
+
 async function wikiWikitext(title: string): Promise<string> {
   const url = `${WIKI}/w/api.php?action=parse&page=${encodeURIComponent(title)}&prop=wikitext&format=json&origin=*&redirects=1`;
   const r = await fetch(url);
@@ -351,6 +376,8 @@ type FeaturedProfile = {
   timeline?: { year: string; event: string }[];
   notableFacts?: string[];
   website?: string;
+  /** Optional explicit company image (logo/hero) URL, preferred when present. */
+  image?: string;
   sources?: { title: string; url: string }[];
   generatedBy?: string;
   updated?: string;
@@ -415,12 +442,16 @@ function mineTimeline(text: string): { year: string; event: string }[] {
     if (!m) continue;
     const year = m[1];
     if (seen.has(year)) continue;
-    if (s.length < 25 || s.length > 240) continue;
+    // Loosened bounds (was 25–240) so short-but-real milestones like
+    // "Founded in 1998." and longer multi-clause sentences both make the cut,
+    // giving the Journey more to work with.
+    if (s.length < 18 || s.length > 320) continue;
     seen.add(year);
     out.push({ year, event: s });
   }
   out.sort((a, b) => +a.year - +b.year);
-  return out.slice(0, 6);
+  // Keep a deeper history (was 6) — the slide scrolls, so more is better.
+  return out.slice(0, 14);
 }
 
 function mineNuggets(text: string, usedYears: Set<string>): string[] {
@@ -550,7 +581,7 @@ function buildFromFeatured(p: FeaturedProfile): CompanyData {
     founders: Array.isArray(p.founders) ? p.founders : [],
     facts,
     timeline: Array.isArray(p.timeline)
-      ? [...p.timeline].sort((a, b) => (+a.year || 0) - (+b.year || 0)).slice(0, 6)
+      ? [...p.timeline].sort((a, b) => (+a.year || 0) - (+b.year || 0)).slice(0, 14)
       : [],
     nuggets: Array.isArray(p.notableFacts) ? p.notableFacts : [],
     source: 'featured',
@@ -626,14 +657,21 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       setData(buildFromFeatured(featured));
       setImage(undefined);
       setLoading(false);
-      // Try an openly-licensed image; keep the gradient if none is a good fit.
-      const ov = await openverseImage(featured.name, [featured.slug.replace(/-/g, ' '), ...imgTokens]);
-      if (ov) {
-        setImageCredit(ov.credit);
-        setImage(await fetchImageAsDataUrl(ov.src));
-      } else {
-        setImage(null);
+      // Find a real company image, in order of relevance:
+      //   1. an explicit image URL committed with the profile,
+      //   2. the company's Wikipedia lead image (logo/hero) — covers most,
+      //   3. an openly-licensed Openverse photo,
+      // and only fall back to the card gradient if all three come up empty.
+      let src: string | null = featured.image || null;
+      if (!src) src = await wikiImageFor(featured.name);
+      if (!src) {
+        const ov = await openverseImage(featured.name, [featured.slug.replace(/-/g, ' '), ...imgTokens]);
+        if (ov) {
+          setImageCredit(ov.credit);
+          src = ov.src;
+        }
       }
+      setImage(src ? await fetchImageAsDataUrl(src) : null);
       return;
     }
 
@@ -846,15 +884,26 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
           )}
 
           {slide.type === 'timeline' && (
-            <div className="space-y-6 md:space-y-8 mt-4 border-l-4 border-white/20 pl-6 md:pl-8 ml-3 md:ml-4 relative">
-              {slide.milestones.map((m: { year: string; event: string }, i: number) => (
-                <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} className="relative">
-                  <div className="absolute -left-[35px] md:-left-[42px] top-1.5 w-5 h-5 md:w-6 md:h-6 rounded-full bg-[#ffaa00] shadow-[0_0_15px_rgba(255,170,0,0.8)] border-4 border-[#0a0a0a]" />
-                  <h4 className="text-xl md:text-2xl font-black text-[#ffaa00] mb-1 md:mb-2 font-mono drop-shadow-md">{m.year}</h4>
-                  <p className="text-gray-200 text-base md:text-lg leading-relaxed drop-shadow-sm">{m.event}</p>
-                </motion.div>
-              ))}
-            </div>
+            <>
+              <p className="text-xs md:text-sm font-mono uppercase tracking-[0.2em] text-[#ffaa00]/80 mb-6 -mt-2">
+                {slide.milestones.length} milestone{slide.milestones.length === 1 ? '' : 's'}
+                {slide.milestones.length > 1 && (
+                  <span className="text-gray-400">
+                    {' · '}
+                    {slide.milestones[0].year} → {slide.milestones[slide.milestones.length - 1].year}
+                  </span>
+                )}
+              </p>
+              <div className="space-y-6 md:space-y-8 mt-2 pl-6 md:pl-8 ml-3 md:ml-4 relative before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-[#ffaa00] before:via-[#ffaa00]/40 before:to-transparent">
+                {slide.milestones.map((m: { year: string; event: string }, i: number) => (
+                  <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(i * 0.08, 0.8) }} className="relative">
+                    <div className="absolute -left-[35px] md:-left-[42px] top-1.5 w-5 h-5 md:w-6 md:h-6 rounded-full bg-[#ffaa00] shadow-[0_0_15px_rgba(255,170,0,0.8)] border-4 border-[#0a0a0a]" />
+                    <h4 className="text-xl md:text-2xl font-black text-[#ffaa00] mb-1 md:mb-2 font-mono drop-shadow-md">{m.year}</h4>
+                    <p className="text-gray-200 text-base md:text-lg leading-relaxed drop-shadow-sm">{m.event}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </>
           )}
 
           {slide.type === 'links' && (

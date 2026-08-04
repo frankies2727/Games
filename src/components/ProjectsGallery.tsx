@@ -39,12 +39,15 @@ export function ProjectsGallery({ projects, onSelect, onBack }: ProjectsGalleryP
             <button
               key={project.id}
               onClick={() => onSelect(project.id)}
-              className={`group relative overflow-hidden text-left rounded-3xl p-7 min-h-[220px] flex flex-col justify-end shadow-lg hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 transition-all border border-white/10 bg-gradient-to-br ${project.gradient}`}
+              className={`group relative overflow-hidden text-left rounded-3xl p-7 min-h-[240px] flex flex-col shadow-lg hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 transition-all border border-white/10 bg-gradient-to-br ${project.gradient}`}
             >
               <div className="absolute inset-0 bg-black/40 group-hover:bg-black/25 transition-colors duration-500" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
 
-              <div className="absolute top-5 left-5 z-10 flex items-center gap-3">
+              {/* Top row lives in normal flow (mb-auto pushes the copy to the
+                  bottom), so a long description can never grow up under the
+                  badges and collide with the title. */}
+              <div className="relative z-10 flex items-center gap-3 mb-auto">
                 <span className="w-12 h-12 flex items-center justify-center text-2xl rounded-2xl bg-white/15 backdrop-blur-md border border-white/20">
                   {project.emoji}
                 </span>
@@ -53,7 +56,7 @@ export function ProjectsGallery({ projects, onSelect, onBack }: ProjectsGalleryP
                 </span>
               </div>
 
-              <div className="relative z-10">
+              <div className="relative z-10 mt-6">
                 <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white drop-shadow-md">
                   {project.name}
                 </h2>
