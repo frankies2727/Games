@@ -147,6 +147,12 @@ async function fetchImageAsDataUrl(src?: string | null): Promise<string | null> 
   }
 }
 
+// Resolve a Wikimedia Commons file name to a CORS-friendly image URL. The
+// width param rasterizes SVG logos to PNG so they render cleanly as an <img>.
+function commonsFileUrl(filename: string, width = 1024): string {
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=${width}`;
+}
+
 // --- Wikidata: structured facts (key-free, CORS-enabled) --------------------
 
 const WIKIDATA = 'https://www.wikidata.org/w/api.php';
@@ -174,6 +180,10 @@ async function wikidataFacts(qid?: string | null): Promise<WikidataFacts | null>
     const ceoId = entityIds('P169')[0];
     const founderIds = entityIds('P112');
 
+    // Logo (P154) or, failing that, a representative image (P18) — a reliable
+    // key-free image for companies whose Wikipedia article has no lead image.
+    const logoFile = firstStr('P154') || firstStr('P18');
+
     const needed = [...new Set([hqId, industryId, ceoId, ...founderIds].filter(Boolean))];
     const labels: Record<string, string> = {};
     if (needed.length) {
@@ -189,6 +199,7 @@ async function wikidataFacts(qid?: string | null): Promise<WikidataFacts | null>
       headquarters: labels[hqId] || '',
       ceo: labels[ceoId] || '',
       founders: founderIds.map((id) => labels[id]).filter(Boolean),
+      logo: logoFile ? commonsFileUrl(logoFile) : undefined,
     };
   } catch {
     return null;
@@ -488,6 +499,8 @@ type WikidataFacts = {
   headquarters?: string;
   ceo?: string;
   founders?: string[];
+  /** Commons logo/image URL, if the entity has one (P154 / P18). */
+  logo?: string;
 };
 
 function buildCompanyData(
@@ -700,20 +713,22 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       setData(built);
       setLoading(false);
 
-      // Prefer the article's own lead image (most relevant). If the article has
-      // none, fall back to a freely-licensed Openverse image.
-      const imgSrc = summary?.originalimage?.source || summary?.thumbnail?.source || null;
-      if (imgSrc) {
-        setImage(await fetchImageAsDataUrl(imgSrc));
-      } else {
+      // Find an image for the queried company, in order of relevance:
+      //   1. the article's own lead image (most relevant),
+      //   2. the Wikidata logo/image (P154/P18) — covers companies whose
+      //      article has no lead image, e.g. Anthropic, Scopely, Notion,
+      //   3. a freely-licensed Openverse photo,
+      // and only fall back to the gradient if all three come up empty.
+      let imgSrc: string | null =
+        summary?.originalimage?.source || summary?.thumbnail?.source || wd?.logo || null;
+      if (!imgSrc) {
         const ov = await openverseImage(built.name, imgTokens);
         if (ov) {
           setImageCredit(ov.credit);
-          setImage(await fetchImageAsDataUrl(ov.src));
-        } else {
-          setImage(null);
+          imgSrc = ov.src;
         }
       }
+      setImage(imgSrc ? await fetchImageAsDataUrl(imgSrc) : null);
     } catch (err) {
       console.error(err);
       setError('The web glitched out. Give it another shot.');
