@@ -376,7 +376,8 @@ type FeaturedProfile = {
   timeline?: { year: string; event: string }[];
   notableFacts?: string[];
   website?: string;
-  /** Optional explicit company image (logo/hero) URL, preferred when present. */
+  /** Curated fallback image (logo/hero) URL, used as a last resort before the
+   *  gradient when the live Wikipedia/Openverse lookups find nothing. */
   image?: string;
   sources?: { title: string; url: string }[];
   generatedBy?: string;
@@ -658,12 +659,12 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
       setImage(undefined);
       setLoading(false);
       // Find a real company image, in order of relevance:
-      //   1. an explicit image URL committed with the profile,
-      //   2. the company's Wikipedia lead image (logo/hero) — covers most,
-      //   3. an openly-licensed Openverse photo,
+      //   1. the company's Wikipedia lead image (logo/hero) — covers most,
+      //   2. an openly-licensed Openverse photo,
+      //   3. an explicit image URL committed with the profile — a curated
+      //      last resort for companies the live sources can't cover,
       // and only fall back to the card gradient if all three come up empty.
-      let src: string | null = featured.image || null;
-      if (!src) src = await wikiImageFor(featured.name);
+      let src: string | null = await wikiImageFor(featured.name);
       if (!src) {
         const ov = await openverseImage(featured.name, [featured.slug.replace(/-/g, ' '), ...imgTokens]);
         if (ov) {
@@ -671,6 +672,7 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
           src = ov.src;
         }
       }
+      if (!src) src = featured.image || null;
       setImage(src ? await fetchImageAsDataUrl(src) : null);
       return;
     }
