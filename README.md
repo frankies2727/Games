@@ -1,8 +1,9 @@
-# Paper Games
+# Sebaz Games Lab
 
-A small gallery of chill, real-time pencil-and-paper games. Play over a shared
-room code (**2 players**, or **2–4** for Ludo, **2–5** for Lotería), or hit **Play
-vs Computer** on any game's join screen to take on built-in bots solo (offline).
+A gallery of chill, real-time multiplayer browser games. Play over a shared
+room code (**2 players**, or **2–4** for Ludo, **2–5** for Lotería & Blackjack),
+or hit **Play vs Computer** on any game's join screen to take on built-in bots
+solo (offline).
 In an online room, the **host can also add bots** to fill open seats, so you can
 mix real friends and CPUs in the same game. Pick one from the home screen:
 
@@ -39,10 +40,13 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
   trades entire hands, **Steal** yanks cards from your rival, and **Frenzy** buries
   them under six. Classic Skip / Reverse / +2 / Wild / +4 included. Empty your hand
   first to win. (Opponent hands are masked server-side via `redact`.)
-- **Blackjack 21** — a neon, suit-free race to 21. Hit, Stand, or Double Down;
-  closest without busting takes the round, with naturals and doubles worth extra.
-  First to the point target wins. Your rival's hole cards stay hidden (`redact`)
-  until the reveal.
+- **Blackjack 21** — a neon, suit-free race to 21 for **2–5 players** (mix
+  friends and bots). Hit, Stand, or Double Down; the best hand under 22 takes the
+  round. Pick a mode in the lobby: **Casino** — everyone starts with **1,000** in
+  mixed-denomination chips, bets before each hand, and the winner rakes the pot
+  (bust the table, or hold the biggest stack after 20 hands) — or **15 Rounds**,
+  where whoever wins the most of 15 hands takes the match. Every rival's hole cards stay hidden (`redact`) until the
+  reveal.
 - **Lotería Millennial** — the Mexican bingo of images with a millennial twist,
   for **2–5 players**. Pick **Clásico** or **Frenzy** to start. Each player gets a
   4×4 **tabla**; one carta is sung at a time, the slot **flashes** on your tabla
