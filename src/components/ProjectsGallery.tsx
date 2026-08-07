@@ -1,6 +1,19 @@
 import { ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
 import { ProjectDefinition } from '../projects/types';
 import { PikachuIcon } from './PikachuIcon';
+
+// Monthly hero image for the "Frankie's Projects" home screen.
+//
+// This points at a fixed, stable path — drop (or replace) a single file at
+// `public/projects/homescreen.jpg` via GitHub → Add file → Upload files and it
+// shows up here automatically, no code change needed. Swap it whenever you like
+// (e.g. a fresh one every month). If the file isn't there, the gallery falls
+// back to the Pikachu header, so nothing breaks when the slot is empty.
+//
+// Prefer a different format? Change the extension on this one line to
+// `homescreen.png` / `homescreen.webp` and upload with that name.
+const HOMESCREEN_IMAGE = `${import.meta.env.BASE_URL}projects/homescreen.jpg`;
 
 interface ProjectsGalleryProps {
   projects: ProjectDefinition[];
@@ -9,6 +22,9 @@ interface ProjectsGalleryProps {
 }
 
 export function ProjectsGallery({ projects, onSelect, onBack }: ProjectsGalleryProps) {
+  // Assume the monthly image is present; if it 404s we fall back to Pikachu.
+  const [heroFailed, setHeroFailed] = useState(false);
+
   return (
     <div className="min-h-screen bg-[#0F1117] text-[#E2E4E8] font-sans selection:bg-[#262B34] px-4 py-12 sm:py-16">
       <div className="max-w-5xl mx-auto">
@@ -21,11 +37,22 @@ export function ProjectsGallery({ projects, onSelect, onBack }: ProjectsGalleryP
         </button>
 
         <header className="text-center mb-12 sm:mb-16">
-          <div className="flex items-center justify-center mb-5">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 drop-shadow-[0_0_25px_rgba(247,208,44,0.35)]">
-              <PikachuIcon className="w-full h-full" />
+          {heroFailed ? (
+            <div className="flex items-center justify-center mb-5">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 drop-shadow-[0_0_25px_rgba(247,208,44,0.35)]">
+                <PikachuIcon className="w-full h-full" />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="mb-8 sm:mb-10">
+              <img
+                src={HOMESCREEN_IMAGE}
+                alt="Frankie's Projects"
+                onError={() => setHeroFailed(true)}
+                className="w-full max-h-64 sm:max-h-80 object-cover rounded-3xl border border-white/10 shadow-2xl"
+              />
+            </div>
+          )}
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tighter uppercase italic text-[#F5F6F7]">
             Frankie&apos;s Projects
           </h1>

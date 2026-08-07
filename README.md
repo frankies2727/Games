@@ -82,6 +82,21 @@ fun facts. Two key-free data sources, both working for every visitor:
 
 On search, a matching featured profile wins; otherwise it falls back to Wikipedia.
 
+### Monthly home-screen image
+
+The **Frankie's Projects** gallery shows a big hero banner at the top. It loads
+from a fixed path so you can refresh it whenever you like (a new one each month
+works great) — just upload/replace one file, no code change:
+
+```
+public/projects/homescreen.jpg
+```
+
+Upload a file with that exact name (GitHub → **Add file → Upload files**) and it
+appears on the next deploy. If the file is missing, the header falls back to the
+Pikachu icon so nothing breaks. See
+[public/projects/README.md](public/projects/README.md) for formats and sizing.
+
 Each project is a self-contained component under `src/projects/` registered in
 `src/projects/index.ts`, and is **lazy-loaded** so opening the games home screen
 never downloads a project's (heavier) code until you actually open it.
