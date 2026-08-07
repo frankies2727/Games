@@ -53,13 +53,11 @@ export function Gallery({ games, onSelect, onOpenProjects }: GalleryProps) {
 
       <div className="max-w-4xl mx-auto">
         <header className="text-center mb-12 sm:mb-16">
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tighter uppercase italic text-[#F5F6F7] flex items-center justify-center flex-wrap gap-x-3">
-            <span className="not-italic">💕</span>
-            <span>C&amp;F - Couple Games</span>
-            <span className="not-italic">✏️</span>
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tighter uppercase italic text-[#F5F6F7]">
+            Sebaz Games Lab
           </h1>
           <p className="text-xs sm:text-sm font-mono uppercase tracking-[0.3em] text-[#9CA3AF] mt-4">
-            Chill pencil &amp; paper games · 2 players · pick one
+            Chill · Real-time multiplayer games · Play with friends &amp; bots
           </p>
         </header>
 
@@ -74,7 +72,7 @@ export function Gallery({ games, onSelect, onOpenProjects }: GalleryProps) {
                 className="w-14 h-14 flex items-center justify-center text-3xl border-2 border-[#39414E]"
                 style={{ background: `${game.accent}22` }}
               >
-                {game.emoji}
+                {game.icon ?? game.emoji}
               </div>
               <div className="flex-1">
                 <h2 className="text-xl font-bold uppercase tracking-tight text-[#F5F6F7]">{game.name}</h2>

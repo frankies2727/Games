@@ -673,7 +673,7 @@ export const ludo: GameDefinition<LudoState> = {
   name: 'Sorry',
   tagline: 'A 2–4 player race with wildcard tiles. Roll, chase, capture, get all four home.',
   accent: '#2A9D8F',
-  emoji: '🎲',
+  emoji: '🤷',
   minPlayers: 2,
   maxPlayers: 4,
   createInitialState,

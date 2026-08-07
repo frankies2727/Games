@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 // ---- Shared base every game's state extends ----
 export type GameStatus = 'waiting' | 'playing' | 'gameover';
@@ -35,6 +35,11 @@ export interface GameDefinition<S extends BaseState = BaseState> {
   tagline: string;
   accent: string; // hex used for the gallery card
   emoji: string;
+  /**
+   * Optional custom icon rendered on the gallery card in place of `emoji`.
+   * Use when a plain emoji can't express the icon (e.g. an animated glyph).
+   */
+  icon?: ReactNode;
   /** Fewest players needed to start (default 2). */
   minPlayers?: number;
   /** Most players a room seats (default 2). */
