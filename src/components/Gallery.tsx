@@ -1,5 +1,18 @@
+import { useState } from 'react';
 import { GameDefinition } from '../types';
 import { PikachuIcon } from './PikachuIcon';
+
+// Swappable icon for the top-right "My Projects" portal button.
+//
+// Like the projects hero image, this points at a fixed, stable path — drop (or
+// replace) a single file at `public/projects/icon.png` via GitHub → Add file →
+// Upload files and it shows up here automatically, no code change needed. Swap
+// it whenever you like. If the file isn't there, the button falls back to the
+// built-in Pikachu icon, so nothing breaks when the slot is empty.
+//
+// A small square image with a transparent background looks best. Prefer another
+// format? Change the extension on this one line (e.g. `icon.jpg` / `icon.webp`).
+const PROJECTS_ICON = `${import.meta.env.BASE_URL}projects/icon.png`;
 
 interface GalleryProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -9,6 +22,9 @@ interface GalleryProps {
 }
 
 export function Gallery({ games, onSelect, onOpenProjects }: GalleryProps) {
+  // Assume the custom icon is present; if it 404s we fall back to Pikachu.
+  const [iconFailed, setIconFailed] = useState(false);
+
   return (
     <div className="min-h-screen bg-[#0F1117] text-[#E2E4E8] font-sans selection:bg-[#262B34] px-4 py-12 sm:py-20">
       {/* Mini Pikachu portal → Frankie's personal projects gallery. */}
@@ -19,7 +35,16 @@ export function Gallery({ games, onSelect, onOpenProjects }: GalleryProps) {
         className="group fixed top-4 right-4 z-50 flex items-center gap-2 rounded-full border-2 border-[#39414E] bg-[#1A1D24]/90 backdrop-blur-md pl-1.5 pr-1.5 sm:pr-3 py-1.5 shadow-[3px_3px_0px_#454C5A] hover:shadow-[1px_1px_0px_#454C5A] hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
       >
         <span className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 drop-shadow-[0_0_6px_rgba(247,208,44,0.5)] group-hover:animate-bounce">
-          <PikachuIcon className="w-full h-full" />
+          {iconFailed ? (
+            <PikachuIcon className="w-full h-full" />
+          ) : (
+            <img
+              src={PROJECTS_ICON}
+              alt="My Projects"
+              onError={() => setIconFailed(true)}
+              className="w-full h-full object-contain rounded-full"
+            />
+          )}
         </span>
         <span className="hidden sm:inline text-[10px] font-mono font-bold uppercase tracking-widest text-[#F5F6F7]">
           My Projects

@@ -82,18 +82,18 @@ fun facts. Two key-free data sources, both working for every visitor:
 
 On search, a matching featured profile wins; otherwise it falls back to Wikipedia.
 
-### Monthly home-screen image
+### Swappable images (monthly refresh)
 
-The **Frankie's Projects** gallery shows a big hero banner at the top. It loads
-from a fixed path so you can refresh it whenever you like (a new one each month
-works great) — just upload/replace one file, no code change:
+Two spots load from fixed paths so you can refresh them whenever you like (a new
+one each month works great) — just upload/replace one file, no code change:
 
-```
-public/projects/homescreen.jpg
-```
+- `public/projects/homescreen.jpg` — the big hero banner atop the **Frankie's
+  Projects** gallery.
+- `public/projects/icon.png` — the little icon on the **My Projects** portal
+  button in the top-right of the games home screen.
 
 Upload a file with that exact name (GitHub → **Add file → Upload files**) and it
-appears on the next deploy. If the file is missing, the header falls back to the
+appears on the next deploy. If a file is missing, that spot falls back to the
 Pikachu icon so nothing breaks. See
 [public/projects/README.md](public/projects/README.md) for formats and sizing.
 
