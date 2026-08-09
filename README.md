@@ -1,7 +1,8 @@
 # Sebaz Games Lab
 
 A gallery of chill, real-time multiplayer browser games. Play over a shared
-room code (**2 players**, or **2–4** for Ludo, **2–5** for Lotería & Blackjack),
+room code (**2 players**, or **2–4** for Ludo, **2–5** for Lotería, Blackjack &
+Crossword Clash),
 or hit **Play vs Computer** on any game's join screen to take on built-in bots
 solo (offline).
 In an online room, the **host can also add bots** to fill open seats, so you can
@@ -62,6 +63,17 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
   (Matcha Mío Café), **El Zócalo** (Palacio Nacional & its vendors), and **Tacos
   Del Valle**. The deck's un-sung tail is masked server-side (`redact`) so nobody
   peeks ahead.
+- **Crossword Clash** — a **2–5 player** brain-teaser race over one shared
+  crossword (mix friends and bots). Pick a clue, type the answer, and if you're
+  right you **claim** that word: its letters lock in for everyone and you bank
+  **points equal to the word's length** — first to fill the whole grid ends it,
+  most points wins. Choose a mode to start: **Normal** — a snappy **4×4** grid
+  with friendly clues where wrong guesses are free — or **Hard** — a chunkier
+  **5×5** grid with terser clues where a **wrong guess locks you out of that
+  word** (a rival can still steal it). Every player gets exactly **3× 🔍 hints**,
+  a power-up that reveals one more letter of your selected word, just for you.
+  Answers never travel on the wire — game state only carries which words have
+  been claimed — so nothing leaks to a peer's console.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
