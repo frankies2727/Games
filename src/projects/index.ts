@@ -18,10 +18,6 @@ const AIArt = lazy(() =>
   import('./aiart/AIArt').then((m) => ({ default: m.AIArt })),
 );
 
-const GovbotDashboard = lazy(() =>
-  import('./govbot/GovbotDashboard').then((m) => ({ default: m.GovbotDashboard })),
-);
-
 // Frankie's personal projects — awesome things being built, one card each.
 // VibeCheck is the first; add more here as they ship.
 export const PROJECTS: ProjectDefinition[] = [
@@ -67,7 +63,7 @@ export const PROJECTS: ProjectDefinition[] = [
     emoji: '🏛️',
     gradient: 'from-[#2563eb] via-[#1e3a8a] to-[#0a0a0a]',
     status: 'Live',
-    Component: GovbotDashboard,
+    href: 'https://frankies2727.github.io/CHN-SocialMedia-Govbot-Main/',
   },
 ];
 
