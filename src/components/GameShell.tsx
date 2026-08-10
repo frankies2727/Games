@@ -8,6 +8,7 @@ import { Lobby } from './Lobby';
 import { GameOver } from './GameOver';
 
 interface GameShellProps {
+  key?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   def: GameDefinition<any>;
   onExit: () => void;
