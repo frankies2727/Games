@@ -14,6 +14,10 @@ const PlaceTimelapse = lazy(() =>
   })),
 );
 
+const AIArt = lazy(() =>
+  import('./aiart/AIArt').then((m) => ({ default: m.AIArt })),
+);
+
 // Frankie's personal projects — awesome things being built, one card each.
 // VibeCheck is the first; add more here as they ship.
 export const PROJECTS: ProjectDefinition[] = [
@@ -38,6 +42,17 @@ export const PROJECTS: ProjectDefinition[] = [
     gradient: 'from-[#0ea5e9] via-[#0f766e] to-[#0a0a0a]',
     status: 'Live',
     Component: PlaceTimelapse,
+  },
+  {
+    id: 'ai-art',
+    name: 'AI Art',
+    tagline: 'A gallery of AI images and the prompts behind them.',
+    description:
+      'Browse AI-generated artwork from creators around the world and copy the exact prompt behind any image with one tap. Every piece credits its creator, links to the original, tags a theme, and names the AI model used. Search and filter by model.',
+    emoji: '🎨',
+    gradient: 'from-[#a855f7] via-[#6d28d9] to-[#0a0a0a]',
+    status: 'Live',
+    Component: AIArt,
   },
 ];
 
