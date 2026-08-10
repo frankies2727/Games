@@ -40,123 +40,73 @@ interface PuzzleDef {
   clues: ClueDef[];
 }
 
-// --- Puzzle bank. Every grid is a fully-interlocking word square (no black
-// squares): each row is an across word and each column is a down word, so all
-// crossings agree. Grids were generated and verified by a solver; the runtime
-// check below re-verifies every crossing at load, so a bad edit fails loudly.
+// --- Puzzle bank. Hundreds of fully-interlocking word-square crosswords
+// (Normal = 4×4, Hard = 5×5), generated offline: grids are solved and every
+// crossing verified, and clues come from dictionary definitions. The data is
+// lazy-loaded the first time the game is opened (Vite emits it as its own async
+// chunk) so the gallery and the other games never pay for its weight.
 
-const NORMAL_PUZZLES: PuzzleDef[] = [
-  {
-    id: 'n1', size: 4, hard: false,
-    clues: [
-      { dir: 'across', index: 0, answer: 'FLOW', clue: 'Move steadily, like a river' },
-      { dir: 'across', index: 1, answer: 'ROPE', clue: "Cowboy's lasso, essentially" },
-      { dir: 'across', index: 2, answer: 'OVER', clue: 'Finished; the opposite of under' },
-      { dir: 'across', index: 3, answer: 'GENE', clue: 'Unit of heredity' },
-      { dir: 'down', index: 0, answer: 'FROG', clue: 'Pond amphibian that leaps' },
-      { dir: 'down', index: 1, answer: 'LOVE', clue: 'Zero, in tennis' },
-      { dir: 'down', index: 2, answer: 'OPEN', clue: 'Not shut' },
-      { dir: 'down', index: 3, answer: 'WERE', clue: "'As it ___' (so to speak)" },
-    ],
-  },
-  {
-    id: 'n2', size: 4, hard: false,
-    clues: [
-      { dir: 'across', index: 0, answer: 'SHIP', clue: 'Ocean-going vessel' },
-      { dir: 'across', index: 1, answer: 'TIDE', clue: "The sea's daily rise and fall" },
-      { dir: 'across', index: 2, answer: 'AREA', clue: 'Region; length times width' },
-      { dir: 'across', index: 3, answer: 'REAR', clue: 'The back of something' },
-      { dir: 'down', index: 0, answer: 'STAR', clue: 'Twinkler in the night sky' },
-      { dir: 'down', index: 1, answer: 'HIRE', clue: 'Take on a new employee' },
-      { dir: 'down', index: 2, answer: 'IDEA', clue: 'A bright thought' },
-      { dir: 'down', index: 3, answer: 'PEAR', clue: 'Bell-shaped fruit' },
-    ],
-  },
-  {
-    id: 'n3', size: 4, hard: false,
-    clues: [
-      { dir: 'across', index: 0, answer: 'SCAN', clue: 'Quickly skim a page' },
-      { dir: 'across', index: 1, answer: 'WORE', clue: 'Had on, as clothes' },
-      { dir: 'across', index: 2, answer: 'IDEA', clue: 'A plan forming in your head' },
-      { dir: 'across', index: 3, answer: 'MEAT', clue: "Butcher's main offering" },
-      { dir: 'down', index: 0, answer: 'SWIM', clue: 'Do laps in a pool' },
-      { dir: 'down', index: 1, answer: 'CODE', clue: "Programmer's output" },
-      { dir: 'down', index: 2, answer: 'AREA', clue: 'Zone or district' },
-      { dir: 'down', index: 3, answer: 'NEAT', clue: 'Tidy and orderly' },
-    ],
-  },
-];
+let NORMAL_PUZZLES: PuzzleDef[] = [];
+let HARD_PUZZLES: PuzzleDef[] = [];
+const PUZZLE_INDEX = new Map<string, PuzzleDef>();
+const puzzleById = (id: string): PuzzleDef | undefined => PUZZLE_INDEX.get(id);
 
-const HARD_PUZZLES: PuzzleDef[] = [
-  {
-    id: 'h1', size: 5, hard: true,
-    clues: [
-      { dir: 'across', index: 0, answer: 'SHEEP', clue: 'Flock member counted by insomniacs' },
-      { dir: 'across', index: 1, answer: 'HELLO', clue: 'Switchboard greeting' },
-      { dir: 'across', index: 2, answer: 'ELBOW', clue: "Joint you supposedly can't lick" },
-      { dir: 'across', index: 3, answer: 'ELOPE', clue: 'Skip the big wedding' },
-      { dir: 'across', index: 4, answer: 'TOWER', clue: 'Pisa landmark that leans' },
-      { dir: 'down', index: 0, answer: 'SHEET', clue: "Bed linen; a ream's single one" },
-      { dir: 'down', index: 1, answer: 'HELLO', clue: 'Adele smash of 2015' },
-      { dir: 'down', index: 2, answer: 'ELBOW', clue: "Macaroni's bend" },
-      { dir: 'down', index: 3, answer: 'ELOPE', clue: 'Run off to Vegas to wed' },
-      { dir: 'down', index: 4, answer: 'POWER', clue: 'What watts measure' },
-    ],
-  },
-  {
-    id: 'h2', size: 5, hard: true,
-    clues: [
-      { dir: 'across', index: 0, answer: 'FORGE', clue: "Blacksmith's hearth; to counterfeit" },
-      { dir: 'across', index: 1, answer: 'OPERA', clue: 'Carmen or Aida' },
-      { dir: 'across', index: 2, answer: 'REFER', clue: 'Point to, as a source' },
-      { dir: 'across', index: 3, answer: 'TREAT', clue: "Halloween's non-trick" },
-      { dir: 'across', index: 4, answer: 'EARTH', clue: 'Third rock from the sun' },
-      { dir: 'down', index: 0, answer: 'FORTE', clue: "One's strong suit" },
-      { dir: 'down', index: 1, answer: 'OPERA', clue: 'Browser, or a night at La Scala' },
-      { dir: 'down', index: 2, answer: 'REFER', clue: 'Send elsewhere, as a patient' },
-      { dir: 'down', index: 3, answer: 'GREAT', clue: 'Terrific; a grandparent prefix' },
-      { dir: 'down', index: 4, answer: 'EARTH', clue: 'Our pale blue dot' },
-    ],
-  },
-  {
-    id: 'h3', size: 5, hard: true,
-    clues: [
-      { dir: 'across', index: 0, answer: 'CHEST', clue: "Treasure box; your ribcage's front" },
-      { dir: 'across', index: 1, answer: 'HUNCH', clue: "Detective's gut feeling" },
-      { dir: 'across', index: 2, answer: 'ENTER', clue: 'Key pressed to confirm' },
-      { dir: 'across', index: 3, answer: 'SCENE', clue: 'Part of an act, in a play' },
-      { dir: 'across', index: 4, answer: 'SHREW', clue: 'Tiny mammal; Kate, tamed by the Bard' },
-      { dir: 'down', index: 0, answer: 'CHESS', clue: 'Game of kings and pawns' },
-      { dir: 'down', index: 1, answer: 'HUNCH', clue: 'Curl your shoulders forward' },
-      { dir: 'down', index: 2, answer: 'ENTER', clue: 'Go inside' },
-      { dir: 'down', index: 3, answer: 'SCENE', clue: 'Make a ___ (a public fuss)' },
-      { dir: 'down', index: 4, answer: 'THREW', clue: 'Pitched the ball' },
-    ],
-  },
-];
-
-const ALL_PUZZLES = [...NORMAL_PUZZLES, ...HARD_PUZZLES];
-const puzzleById = (id: string): PuzzleDef | undefined => ALL_PUZZLES.find((p) => p.id === id);
-
-// --- Load-time integrity check: build each grid from its across words and make
-// sure every down word matches the column it should read. Catches typos.
-(function verifyPuzzles() {
-  for (const p of ALL_PUZZLES) {
-    const grid: string[][] = Array.from({ length: p.size }, () => Array<string>(p.size).fill(''));
-    for (const c of p.clues) {
-      if (c.answer.length !== p.size) throw new Error(`crossword ${p.id}: ${c.dir} ${c.index} wrong length`);
-      for (let k = 0; k < p.size; k++) {
-        const r = c.dir === 'across' ? c.index : k;
-        const col = c.dir === 'across' ? k : c.index;
-        const ch = c.answer[k];
-        if (grid[r][col] && grid[r][col] !== ch) {
-          throw new Error(`crossword ${p.id}: crossing mismatch at ${r},${col}`);
-        }
-        grid[r][col] = ch;
-      }
+// Build each grid from its across words and confirm every down word matches the
+// column it should read; drop any puzzle that doesn't, so the game can never
+// render an inconsistent board (defensive against a bad data edit).
+function isConsistent(p: PuzzleDef): boolean {
+  const grid: string[][] = Array.from({ length: p.size }, () => Array<string>(p.size).fill(''));
+  for (const c of p.clues) {
+    if (c.answer.length !== p.size) return false;
+    for (let k = 0; k < p.size; k++) {
+      const r = c.dir === 'across' ? c.index : k;
+      const col = c.dir === 'across' ? k : c.index;
+      if (grid[r][col] && grid[r][col] !== c.answer[k]) return false;
+      grid[r][col] = c.answer[k];
     }
   }
-})();
+  return true;
+}
+
+// Lazy glob loader (Vite emits the JSON as its own async chunk; avoids a
+// tsconfig `resolveJsonModule` change, matching the projects area).
+const PUZZLE_LOADERS = import.meta.glob('./data/crosswords.json') as Record<string, () => Promise<{ default: PuzzleDef[] }>>;
+
+let loadPromise: Promise<void> | null = null;
+// Kick the data load exactly once (on first game mount).
+function ensurePuzzlesLoaded(): Promise<void> {
+  if (!loadPromise) {
+    const load = Object.values(PUZZLE_LOADERS)[0];
+    loadPromise = (load ? load() : Promise.resolve({ default: [] as PuzzleDef[] })).then((m) => {
+      const all = m.default.filter(isConsistent);
+      NORMAL_PUZZLES = all.filter((p) => !p.hard);
+      HARD_PUZZLES = all.filter((p) => p.hard);
+      for (const p of all) PUZZLE_INDEX.set(p.id, p);
+    });
+  }
+  return loadPromise;
+}
+const puzzlesLoaded = () => PUZZLE_INDEX.size > 0;
+
+// Shuffle-bag picker: deal every puzzle in a pool once, in random order, before
+// any repeat — so a session never replays a board until the whole pool is used
+// up (hundreds of games).
+const bags: Record<'normal' | 'hard', string[]> = { normal: [], hard: [] };
+function pickPuzzle(hard: boolean): PuzzleDef | null {
+  const pool = hard ? HARD_PUZZLES : NORMAL_PUZZLES;
+  if (pool.length === 0) return null;
+  const kind = hard ? 'hard' : 'normal';
+  if (bags[kind].length === 0) {
+    const ids = pool.map((p) => p.id);
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    bags[kind] = ids;
+  }
+  const id = bags[kind].pop() as string;
+  return puzzleById(id) ?? pool[Math.floor(Math.random() * pool.length)];
+}
 
 // --- Derived helpers (numbering, cells). Because every grid is a full square:
 //   across word on row r starts at (r,0); number = r === 0 ? 1 : size + r
@@ -281,8 +231,8 @@ function reducer(state: CrosswordState, pid: string, action: GameAction): Crossw
   if (state.phase === 'choosing') {
     if (action.type !== 'mode' || pid !== ids[0]) return state;
     const hard = !!action.hard;
-    const pool = hard ? HARD_PUZZLES : NORMAL_PUZZLES;
-    const puzzle = pool[Math.floor(Math.random() * pool.length)];
+    const puzzle = pickPuzzle(hard);
+    if (!puzzle) return state; // data not loaded yet (the chooser is gated on it)
     const scores: Record<string, number> = {};
     const hints: Record<string, number> = {};
     const revealed: Record<string, string[]> = {};
@@ -406,7 +356,19 @@ const SUB = '#9CA3AF';
 const LINE = '#39414E';
 const PANEL = '#1A1D24';
 
-function ModeChooser({ myTurn, chooserName, dispatch }: { myTurn: boolean; chooserName: string; dispatch: (a: GameAction) => void }) {
+// Track the lazy puzzle load and re-render once the data is in.
+function usePuzzlesReady(): boolean {
+  const [ready, setReady] = useState(puzzlesLoaded());
+  useEffect(() => {
+    if (ready) return;
+    let alive = true;
+    ensurePuzzlesLoaded().then(() => { if (alive) setReady(true); });
+    return () => { alive = false; };
+  }, [ready]);
+  return ready;
+}
+
+function ModeChooser({ myTurn, chooserName, dispatch, ready }: { myTurn: boolean; chooserName: string; dispatch: (a: GameAction) => void; ready: boolean }) {
   return (
     <div className="flex flex-col items-center p-4 sm:p-8 max-w-md mx-auto w-full">
       <div className="w-full flex flex-col items-center mb-8 border-b-2 border-[#39414E] pb-4">
@@ -418,7 +380,8 @@ function ModeChooser({ myTurn, chooserName, dispatch }: { myTurn: boolean; choos
         <div className="flex flex-col gap-4 w-full">
           <button
             onClick={() => dispatch({ type: 'mode', hard: false })}
-            className="w-full p-6 text-left bg-[#1A1D24] hover:bg-[#262B34] active:translate-y-1 transition-all border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A]"
+            disabled={!ready}
+            className="w-full p-6 text-left bg-[#1A1D24] hover:bg-[#262B34] active:translate-y-1 transition-all border-2 border-[#39414E] shadow-[4px_4px_0px_#454C5A] hover:shadow-[2px_2px_0px_#454C5A] disabled:opacity-50 disabled:pointer-events-none"
           >
             <div className="text-xl font-bold uppercase tracking-wider text-[#F5F6F7]">🟢 Normal</div>
             <div className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF] mt-2">
@@ -427,7 +390,8 @@ function ModeChooser({ myTurn, chooserName, dispatch }: { myTurn: boolean; choos
           </button>
           <button
             onClick={() => dispatch({ type: 'mode', hard: true })}
-            className="w-full p-6 text-left bg-[#1A1D24] hover:bg-[#262B34] active:translate-y-1 transition-all border-2 border-[#39414E]"
+            disabled={!ready}
+            className="w-full p-6 text-left bg-[#1A1D24] hover:bg-[#262B34] active:translate-y-1 transition-all border-2 border-[#39414E] disabled:opacity-50 disabled:pointer-events-none"
             style={{ boxShadow: '4px 4px 0px #E63946' }}
           >
             <div className="text-xl font-bold uppercase tracking-wider text-[#F5F6F7]">🔴 Hard</div>
@@ -436,7 +400,7 @@ function ModeChooser({ myTurn, chooserName, dispatch }: { myTurn: boolean; choos
             </div>
           </button>
           <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B7280] text-center mt-2">
-            Everyone gets 3× 🔍 hints — reveal a letter of your selected word
+            {ready ? 'Everyone gets 3× 🔍 hints — reveal a letter of your selected word' : 'Loading puzzles…'}
           </p>
         </div>
       ) : (
@@ -450,6 +414,7 @@ function ModeChooser({ myTurn, chooserName, dispatch }: { myTurn: boolean; choos
 
 function Board({ state, myId, dispatch }: BoardProps<CrosswordState>) {
   const ids = Object.keys(state.players);
+  const puzzlesReady = usePuzzlesReady();
   const seatOf = (id: string) => ids.indexOf(id);
   const nameOf = (id: string) => (id === myId ? 'You' : state.players[id]?.name ?? '—');
 
@@ -462,11 +427,20 @@ function Board({ state, myId, dispatch }: BoardProps<CrosswordState>) {
 
   if (state.phase === 'choosing') {
     const chooser = state.players[ids[0]];
-    return <ModeChooser myTurn={myId === ids[0]} chooserName={chooser?.name ?? 'opponent'} dispatch={dispatch} />;
+    return <ModeChooser myTurn={myId === ids[0]} chooserName={chooser?.name ?? 'opponent'} dispatch={dispatch} ready={puzzlesReady} />;
   }
 
   const puzzle = puzzleById(state.puzzleId);
-  if (!puzzle) return null;
+  if (!puzzle) {
+    // Playing, but the puzzle bank is still streaming in (e.g. a guest who just
+    // joined). Show a brief loader; usePuzzlesReady re-renders once it's ready.
+    return (
+      <div className="flex flex-col gap-4 min-h-[60vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-4 border-[#39414E]" />
+        <p className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Loading puzzle…</p>
+      </div>
+    );
+  }
   const size = puzzle.size;
 
   const myRevealed = new Set(state.revealed[myId] ?? []);

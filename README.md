@@ -72,9 +72,14 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
   trickier clues. Wrong guesses never cost anything in either mode; only a
   correct answer claims the word. Every player gets exactly **3× 🔍 hints**, a
   power-up that reveals one more letter of your selected word, just for you.
-  **Play Again** replays the very same board so you can run it back. Answers
-  never travel on the wire — game state only carries which words have been
-  claimed — so nothing leaks to a peer's console.
+  **Play Again** replays the very same board so you can run it back. There are
+  **hundreds of puzzles** (240 Normal + 160 Hard) — generated offline (grids
+  solved &amp; every crossing verified, clues drawn from dictionary definitions)
+  and dealt from a **shuffle-bag** so a session never repeats a board until the
+  whole pool is used up. The data is lazy-loaded (its own async chunk) so it
+  never weighs down the rest of the site. Answers never travel on the wire —
+  game state only carries which words have been claimed — so nothing leaks to a
+  peer's console.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
