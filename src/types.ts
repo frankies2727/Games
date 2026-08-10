@@ -48,6 +48,13 @@ export interface GameDefinition<S extends BaseState = BaseState> {
   createInitialState: (roomId: string) => S;
   /** Transition waiting -> playing once enough players are seated. */
   start: (state: S) => S;
+  /**
+   * Optional "Play Again" behaviour. When defined, a rematch runs this on the
+   * finished state instead of recreating from scratch — letting a game preserve
+   * setup across a rematch (e.g. replay the very same puzzle/board) rather than
+   * re-rolling. Falls back to `start(createInitialState + players)` when absent.
+   */
+  replay?: (state: S) => S;
   /** Apply a player's move; return the next state. */
   reducer: (state: S, playerId: string, action: GameAction) => S;
   Board: ComponentType<BoardProps<S>>;

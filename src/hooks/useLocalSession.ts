@@ -57,6 +57,9 @@ export function useLocalSession<S extends BaseState>(
   const rematch = useCallback(() => {
     const room = stateRef.current;
     if (!room) return;
+    // Games may define `replay` to reuse the finished setup (e.g. the same
+    // crossword board) instead of re-rolling from scratch.
+    if (def.replay) { commit(def.replay(room)); return; }
     const fresh = def.createInitialState(room.roomId);
     commit(def.start({ ...fresh, players: room.players }));
   }, [commit, def]);
