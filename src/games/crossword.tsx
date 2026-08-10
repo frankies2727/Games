@@ -186,11 +186,13 @@ function start(state: CrosswordState): CrosswordState {
   };
 }
 
-// Play Again — replay the SAME puzzle and mode, just wiped clean. Keeps the
-// board identical instead of re-rolling a new one (falls back to the mode
-// chooser only if no puzzle was ever picked). Wired in via GameDefinition.replay.
+// Play Again — deal a FRESH board in the same mode (no need to re-pick Normal/
+// Hard), drawn from the shuffle-bag so it's a new, non-repeating puzzle. Falls
+// back to the mode chooser only if the bank isn't ready yet. Wired in via
+// GameDefinition.replay.
 function replay(state: CrosswordState): CrosswordState {
-  if (!state.puzzleId) return start(state);
+  const puzzle = state.puzzleId ? pickPuzzle(state.hard) : null;
+  if (!puzzle) return start(state);
   const ids = Object.keys(state.players);
   const scores: Record<string, number> = {};
   const hints: Record<string, number> = {};
@@ -200,6 +202,8 @@ function replay(state: CrosswordState): CrosswordState {
     ...state,
     status: 'playing',
     phase: 'playing',
+    puzzleId: puzzle.id,
+    size: puzzle.size,
     winnerId: null,
     solvedBy: {},
     scores,
