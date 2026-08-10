@@ -108,6 +108,12 @@ Also in the gallery:
 
 - **Place Timelapse** — watch any place on Earth change over time, from a year of
   NASA satellite imagery to the ground-level Street View history of a spot.
+- **Govbot Social** — the social-media presence built for **Govbot**, the bot
+  that auto-posts legislative bill updates. Its live "Social Media Posts
+  Dashboard" (a separate GitHub Pages site) is embedded full-window here — every
+  post across **Bluesky, X, Threads &amp; Instagram**, filterable, with live
+  Bluesky feeds and links to each account — plus an **Open full site** button to
+  pop out to its own tab.
 - **AI Art** — a gallery of AI-generated images and the exact **prompts** behind
   them, migrated from Notion. Browse a clean masonry grid, tap any image to read
   its full prompt, and **copy it to your clipboard** with one tap to paste into

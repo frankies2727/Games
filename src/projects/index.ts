@@ -18,6 +18,10 @@ const AIArt = lazy(() =>
   import('./aiart/AIArt').then((m) => ({ default: m.AIArt })),
 );
 
+const GovbotDashboard = lazy(() =>
+  import('./govbot/GovbotDashboard').then((m) => ({ default: m.GovbotDashboard })),
+);
+
 // Frankie's personal projects — awesome things being built, one card each.
 // VibeCheck is the first; add more here as they ship.
 export const PROJECTS: ProjectDefinition[] = [
@@ -53,6 +57,17 @@ export const PROJECTS: ProjectDefinition[] = [
     gradient: 'from-[#a855f7] via-[#6d28d9] to-[#0a0a0a]',
     status: 'Live',
     Component: AIArt,
+  },
+  {
+    id: 'govbot',
+    name: 'Govbot Social',
+    tagline: 'The social-media presence behind Govbot.',
+    description:
+      'The rigorous, always-current dashboard for Govbot — the bot that auto-posts legislative bill updates. It tracks every post across Bluesky, X, Threads and Instagram (filterable, with live Bluesky feeds and links to each account), built automatically from the post history to raise awareness of the tool.',
+    emoji: '🏛️',
+    gradient: 'from-[#2563eb] via-[#1e3a8a] to-[#0a0a0a]',
+    status: 'Live',
+    Component: GovbotDashboard,
   },
 ];
 
