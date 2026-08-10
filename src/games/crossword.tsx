@@ -10,10 +10,10 @@ import { cn } from '../lib/utils';
 // it; most points wins.
 //
 // Two modes:
-//   • NORMAL — a snappy 4×4 grid with friendly, direct clues. A wrong guess
-//     costs nothing, so guess away.
-//   • HARD   — a chunkier 5×5 grid with terser, trickier clues. A wrong guess
-//     LOCKS you out of that word (a rival can still steal it), so think first.
+//   • NORMAL — a snappy 4×4 grid with friendly, direct clues.
+//   • HARD   — a chunkier 5×5 grid with terser, trickier clues.
+// A wrong guess never costs anything in either mode — guess freely; only a
+// correct answer claims the word.
 //
 // Power-up — every player gets exactly 3× 🔍 HINTS. A hint reveals one more
 // letter of your selected word, just for you. Spend them wisely.
@@ -181,18 +181,9 @@ function letterAt(puzzle: PuzzleDef, r: number, c: number): string {
 
 const HINTS_PER_PLAYER = 3;
 const BOT_SOLVE_CHANCE = 0.4; // per bot "tick" while it has an available clue
-const BOT_ERR_CHANCE = 0.12; // hard mode: chance a bot fumbles and locks itself out
 
 const PLAYER_COLORS = ['#4CC9F0', '#F72585', '#FFD166', '#06D6A0', '#B5179E'];
 const colorForSeat = (i: number) => PLAYER_COLORS[i % PLAYER_COLORS.length];
-
-// A wrong guess of the same length (used by a fumbling bot in hard mode).
-function wrongGuess(ans: string): string {
-  const rot = ans.slice(1) + ans[0];
-  if (rot !== ans) return rot;
-  const rev = ans.split('').reverse().join('');
-  return rev !== ans ? rev : ans.slice(0, -1) + (ans[0] === 'A' ? 'B' : 'A');
-}
 
 // ---------------------------------------------------------------------------
 
@@ -205,7 +196,6 @@ export interface CrosswordState extends BaseState {
   scores: Record<string, number>;
   hints: Record<string, number>; // playerId -> hints remaining
   revealed: Record<string, string[]>; // playerId -> cellKeys revealed to them via hints
-  locked: Record<string, string[]>; // hard mode: playerId -> clueKeys they're locked out of
   lastResult: { pid: string; clueKey: string; ok: boolean; hint?: boolean } | null;
   botClock: number; // bumped by bot "think" ticks to keep the local bot loop alive
 }
@@ -224,14 +214,13 @@ function createInitialState(roomId: string): CrosswordState {
     scores: {},
     hints: {},
     revealed: {},
-    locked: {},
     lastResult: null,
     botClock: 0,
   };
 }
 
 // Waiting -> playing drops into the mode chooser; the puzzle is dealt once a
-// mode is picked (so a rematch re-picks the mode and re-rolls the puzzle).
+// mode is picked.
 function start(state: CrosswordState): CrosswordState {
   return {
     ...state,
@@ -242,7 +231,30 @@ function start(state: CrosswordState): CrosswordState {
     scores: {},
     hints: {},
     revealed: {},
-    locked: {},
+    lastResult: null,
+    botClock: 0,
+  };
+}
+
+// Play Again — replay the SAME puzzle and mode, just wiped clean. Keeps the
+// board identical instead of re-rolling a new one (falls back to the mode
+// chooser only if no puzzle was ever picked). Wired in via GameDefinition.replay.
+function replay(state: CrosswordState): CrosswordState {
+  if (!state.puzzleId) return start(state);
+  const ids = Object.keys(state.players);
+  const scores: Record<string, number> = {};
+  const hints: Record<string, number> = {};
+  const revealed: Record<string, string[]> = {};
+  for (const id of ids) { scores[id] = 0; hints[id] = HINTS_PER_PLAYER; revealed[id] = []; }
+  return {
+    ...state,
+    status: 'playing',
+    phase: 'playing',
+    winnerId: null,
+    solvedBy: {},
+    scores,
+    hints,
+    revealed,
     lastResult: null,
     botClock: 0,
   };
@@ -274,12 +286,10 @@ function reducer(state: CrosswordState, pid: string, action: GameAction): Crossw
     const scores: Record<string, number> = {};
     const hints: Record<string, number> = {};
     const revealed: Record<string, string[]> = {};
-    const locked: Record<string, string[]> = {};
     for (const id of ids) {
       scores[id] = 0;
       hints[id] = HINTS_PER_PLAYER;
       revealed[id] = [];
-      locked[id] = [];
     }
     return {
       ...state,
@@ -291,7 +301,6 @@ function reducer(state: CrosswordState, pid: string, action: GameAction): Crossw
       scores,
       hints,
       revealed,
-      locked,
       lastResult: null,
       botClock: 0,
     };
@@ -314,15 +323,11 @@ function reducer(state: CrosswordState, pid: string, action: GameAction): Crossw
     if (!clue) return state;
     const key = clueKey(dir, index);
     if (state.solvedBy[key]) return state; // already claimed
-    if (state.hard && (state.locked[pid] ?? []).includes(key)) return state; // locked out
 
     const guess = String(action.guess ?? '').toUpperCase().replace(/[^A-Z]/g, '');
     if (guess !== clue.answer) {
-      // Wrong. In hard mode it locks the guesser out of this word.
-      const locked = state.hard
-        ? { ...state.locked, [pid]: [...(state.locked[pid] ?? []), key] }
-        : state.locked;
-      return { ...state, locked, lastResult: { pid, clueKey: key, ok: false } };
+      // Wrong — no penalty in either mode; just flag it so the UI can nudge.
+      return { ...state, lastResult: { pid, clueKey: key, ok: false } };
     }
 
     // Correct — claim it.
@@ -382,16 +387,12 @@ function botMove(state: CrosswordState, bid: string): GameAction | null {
   const puzzle = puzzleById(state.puzzleId);
   if (!puzzle) return null;
 
-  const lockedSet = new Set(state.locked[bid] ?? []);
-  const avail = puzzle.clues.filter(
-    (c) => !state.solvedBy[clueKey(c.dir, c.index)] && !lockedSet.has(clueKey(c.dir, c.index)),
-  );
+  const avail = puzzle.clues.filter((c) => !state.solvedBy[clueKey(c.dir, c.index)]);
   if (avail.length === 0) return null; // nothing left for this bot — go quiet
 
   if (Math.random() < BOT_SOLVE_CHANCE) {
     const c = avail[Math.floor(Math.random() * avail.length)];
-    const guess = state.hard && Math.random() < BOT_ERR_CHANCE ? wrongGuess(c.answer) : c.answer;
-    return { type: 'submit', dir: c.dir, index: c.index, guess };
+    return { type: 'submit', dir: c.dir, index: c.index, guess: c.answer };
   }
   return { type: 'tick' };
 }
@@ -431,7 +432,7 @@ function ModeChooser({ myTurn, chooserName, dispatch }: { myTurn: boolean; choos
           >
             <div className="text-xl font-bold uppercase tracking-wider text-[#F5F6F7]">🔴 Hard</div>
             <div className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF] mt-2">
-              5×5 grid · trickier clues · a wrong guess locks you out of that word
+              Bigger 5×5 grid · terser, trickier clues
             </div>
           </button>
           <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B7280] text-center mt-2">
@@ -469,7 +470,6 @@ function Board({ state, myId, dispatch }: BoardProps<CrosswordState>) {
   const size = puzzle.size;
 
   const myRevealed = new Set(state.revealed[myId] ?? []);
-  const myLocked = new Set(state.locked[myId] ?? []);
   const myHints = state.hints[myId] ?? 0;
 
   const totalClues = puzzle.clues.length;
@@ -484,7 +484,6 @@ function Board({ state, myId, dispatch }: BoardProps<CrosswordState>) {
   const selClue = sel ? puzzle.clues.find((c) => c.dir === sel.dir && c.index === sel.index) : undefined;
   const selKey = sel ? clueKey(sel.dir, sel.index) : '';
   const selSolvedBy = sel ? state.solvedBy[selKey] : undefined;
-  const selLocked = sel ? myLocked.has(selKey) : false;
 
   // Letters of the selected word already known to me (public solve or my hints).
   const selKnown: string[] = sel
@@ -511,7 +510,6 @@ function Board({ state, myId, dispatch }: BoardProps<CrosswordState>) {
         const key = clueKey(c.dir, c.index);
         const owner = state.solvedBy[key];
         const selected = sel?.dir === c.dir && sel?.index === c.index;
-        const locked = myLocked.has(key);
         return (
           <button
             key={key}
@@ -531,8 +529,6 @@ function Board({ state, myId, dispatch }: BoardProps<CrosswordState>) {
               >
                 ✓ {nameOf(owner)}
               </span>
-            ) : locked ? (
-              <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-[#E63946] shrink-0">🔒</span>
             ) : null}
           </button>
         );
@@ -655,10 +651,6 @@ function Board({ state, myId, dispatch }: BoardProps<CrosswordState>) {
                   <div className="text-xs font-mono font-bold uppercase tracking-widest py-1" style={{ color: colorForSeat(seatOf(selSolvedBy)) }}>
                     ✓ Claimed by {nameOf(selSolvedBy)}
                   </div>
-                ) : selLocked ? (
-                  <div className="text-xs font-mono font-bold uppercase tracking-widest text-[#E63946] py-1">
-                    🔒 You're locked out of this word
-                  </div>
                 ) : (
                   <>
                     <div className="flex gap-2">
@@ -693,7 +685,7 @@ function Board({ state, myId, dispatch }: BoardProps<CrosswordState>) {
                     </div>
                     {myBadGuess && (
                       <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#E63946]">
-                        {state.hard ? "Nope — you're now locked out of this word." : 'Nope — try again.'}
+                        Nope — try again.
                       </span>
                     )}
                   </>
@@ -729,6 +721,7 @@ export const crossword: GameDefinition<CrosswordState> = {
   maxPlayers: 5,
   createInitialState,
   start,
+  replay,
   reducer,
   botMove,
   Board,
