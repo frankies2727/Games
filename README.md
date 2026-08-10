@@ -98,6 +98,19 @@ fun facts. Two key-free data sources, both working for every visitor:
 
 On search, a matching featured profile wins; otherwise it falls back to Wikipedia.
 
+Also in the gallery:
+
+- **Place Timelapse** — watch any place on Earth change over time, from a year of
+  NASA satellite imagery to the ground-level Street View history of a spot.
+- **AI Art** — a gallery of AI-generated images and the exact **prompts** behind
+  them, migrated from Notion. Browse a clean masonry grid, tap any image to read
+  its full prompt, and **copy it to your clipboard** with one tap to paste into
+  your favourite image generator. Every piece **credits its creator**, links to
+  the **original** post, tags a **theme**, and names the **AI model** used; a
+  search box and model filter chips keep all 112 pieces browsable. Images are
+  self-hosted (compressed WebP under `public/projects/ai-art/`) so the gallery is
+  fully standalone — nothing loads from Notion at runtime.
+
 ### Swappable images (monthly refresh)
 
 Two spots load from fixed paths so you can refresh them whenever you like (a new
