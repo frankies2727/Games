@@ -17,6 +17,14 @@ export interface ProjectDefinition {
   gradient: string;
   /** Lifecycle badge, e.g. "Live", "In Progress", "Prototype". */
   status: string;
-  /** The full-screen app. Receives `onExit` to go back to the gallery. */
-  Component: ComponentType<{ onExit: () => void }>;
+  /**
+   * The full-screen in-app project. Receives `onExit` to go back to the gallery.
+   * Provide this OR `href` (an external link).
+   */
+  Component?: ComponentType<{ onExit: () => void }>;
+  /**
+   * External destination. When set, clicking the card opens this URL in a new
+   * tab instead of routing to an in-app screen (e.g. a separately-hosted site).
+   */
+  href?: string;
 }
