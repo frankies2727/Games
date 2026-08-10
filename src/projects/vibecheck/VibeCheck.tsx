@@ -130,21 +130,58 @@ async function wikiExtract(title: string): Promise<string> {
   return first?.extract ?? '';
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Rasterize a cross-origin image to a data URL via an anonymous <img> + canvas.
+// This follows redirects at the image layer (so Wikimedia's Special:FilePath →
+// upload.wikimedia.org chain works) and only succeeds when the *final* host
+// serves CORS headers; if it can't, it resolves null instead of tainting.
+function imageToDataUrlViaCanvas(src: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx || !canvas.width || !canvas.height) return resolve(null);
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(null); // tainted — can't export
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+// Inline a remote image as a data URL so it can be captured in a screenshot.
+// Tries a CORS fetch first, then an anonymous <img>+canvas rasterization; if
+// both fail (host serves no CORS headers) it returns the raw URL, which still
+// DISPLAYS on screen but is skipped by the download so it never taints the
+// canvas (see the `filter` in handleDownload).
 async function fetchImageAsDataUrl(src?: string | null): Promise<string | null> {
   if (!src) return null;
   try {
-    const res = await fetch(src);
-    const blob = await res.blob();
-    return await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(blob);
-    });
+    const res = await fetch(src, { mode: 'cors' });
+    if (res.ok) {
+      const durl = await blobToDataUrl(await res.blob());
+      if (durl.startsWith('data:')) return durl;
+    }
   } catch {
-    // Cross-origin fetch blocked — fall back to the raw URL. It still displays
-    // in an <img>; only the screenshot-download feature won't capture it.
-    return src;
+    // fall through to the canvas rasterization attempt
   }
+  const viaCanvas = await imageToDataUrlViaCanvas(src);
+  return viaCanvas ?? src;
 }
 
 // Resolve a Wikimedia Commons file name to a CORS-friendly image URL. The
@@ -788,26 +825,42 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
     if (!data) return;
     setIsDownloading(true);
     setIsDownloadModalOpen(false);
-    try {
-      const capture = async (i: number) => {
-        const node = document.getElementById(`slide-${i}`);
-        if (!node) return;
-        node.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
-        await delay(300);
-        const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2, quality: 0.95 });
+    // Skip any image that couldn't be inlined to a data: URL. A cross-origin
+    // <img> taints the canvas and makes the whole export throw; dropping it lets
+    // the screenshot succeed (the slide just falls back to its gradient scene)
+    // instead of failing outright.
+    const filter = (node: HTMLElement) => {
+      if (node instanceof HTMLImageElement) {
+        const src = node.currentSrc || node.getAttribute('src') || '';
+        return src.startsWith('data:');
+      }
+      return true;
+    };
+    const capture = async (i: number): Promise<boolean> => {
+      const node = document.getElementById(`slide-${i}`);
+      if (!node) return false;
+      node.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
+      await delay(300);
+      try {
+        const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2, quality: 0.95, filter });
         saveAs(dataUrl, `${data.name.replace(/\s+/g, '_')}_Slide_${i + 1}.png`);
-      };
+        return true;
+      } catch (err) {
+        console.error(`Slide ${i + 1} capture failed`, err);
+        return false;
+      }
+    };
+    try {
+      let ok = 0;
       if (mode === 'current') {
-        await capture(currentSlideIndex);
+        if (await capture(currentSlideIndex)) ok++;
       } else {
         for (let i = 0; i < slides.length; i++) {
-          await capture(i);
+          if (await capture(i)) ok++;
           await delay(400);
         }
       }
-    } catch (err) {
-      console.error('Download failed', err);
-      alert('Something went wrong during the download (browsers can block cross-origin images).');
+      if (ok === 0) alert('Sorry — the screenshot could not be generated. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -1165,7 +1218,7 @@ export function VibeCheck({ onExit }: { onExit: () => void }) {
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">How would you like to save this VibeCheck?</p>
                       <div className="flex flex-col gap-3">
                         <button onClick={() => handleDownload('current')} className="w-full py-3 px-4 bg-gray-100 dark:bg-[#222] hover:bg-gray-200 dark:hover:bg-[#333] text-gray-900 dark:text-white rounded-xl font-medium transition-colors">
-                          Download Slide {currentSlideIndex + 1}
+                          Download Current Slide: {currentSlideIndex + 1}
                         </button>
                         <button onClick={() => handleDownload('all')} className="w-full py-3 px-4 bg-[#ccff00] text-black hover:bg-[#b3e600] rounded-xl font-bold transition-colors shadow-lg shadow-[#ccff00]/20">
                           Download All ({slides.length} images)
