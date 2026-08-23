@@ -192,3 +192,14 @@ One-time setup: in the repo's **Settings → Pages**, set **Source** to
 
 The site is served from `/frankie-labs/` (configured via `base` in `vite.config.ts`);
 update that if you rename the repo.
+
+## 🎈 Externally-hosted games
+
+A game that lives on its own site doesn't have an in-app state/reducer/board, so
+it isn't a `GameDefinition`. Add it to `EXTERNAL_GAMES` in `src/games/index.ts`
+instead — id, name, tagline, accent, emoji and `href`. It renders as a normal
+gallery card that opens in a new tab (`Play ↗`), and `/play/<id>` redirects to
+the real site so a shared link still lands somewhere sensible.
+
+**Balloon Rumble** (`https://pepper-apex-brave-coral.grok.me/`) is the first
+one.
