@@ -5,8 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    // Served from https://<user>.github.io/Games/ on GitHub Pages.
-    base: '/Games/',
+    // Served from https://<user>.github.io/frankie-labs/ on GitHub Pages.
+    base: '/frankie-labs/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

@@ -145,7 +145,7 @@ Every game is fully **peer-to-peer**: the two browsers connect directly via WebR
 (using [PeerJS](https://peerjs.com) for the initial handshake), so there's no
 backend server to run or pay for. That's what lets it live on GitHub Pages.
 
-**Play it:** https://frankies2727.github.io/Games/
+**Play it:** https://frankies2727.github.io/frankie-labs/
 
 ## Adding a game
 
@@ -191,5 +191,5 @@ static site and publishes it to GitHub Pages.
 One-time setup: in the repo's **Settings → Pages**, set **Source** to
 **GitHub Actions**.
 
-The site is served from `/Games/` (configured via `base` in `vite.config.ts`);
+The site is served from `/frankie-labs/` (configured via `base` in `vite.config.ts`);
 update that if you rename the repo.

@@ -39,7 +39,7 @@ the games home screen.
 ## Why this folder (`public/`)
 
 Files under `public/` are served as-is at a stable URL — here that's
-`/Games/projects/homescreen.jpg`. That's what lets you replace the picture by
+`/frankie-labs/projects/homescreen.jpg`. That's what lets you replace the picture by
 just uploading a file, without touching or rebuilding any component code.
 
 **Only add images you have the rights to** — your own artwork/photos, or

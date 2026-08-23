@@ -19,10 +19,10 @@ function ExternalRedirect({ href }: { href: string }) {
 }
 
 // URL-driven navigation. Each screen has its own path under the site base:
-//   /Games/                     → games gallery (home)
-//   /Games/play/<gameId>        → a game
-//   /Games/projects             → Frankie's projects gallery
-//   /Games/projects/<projectId> → a project (VibeCheck, AI Art, …)
+//   /frankie-labs/                     → games gallery (home)
+//   /frankie-labs/play/<gameId>        → a game
+//   /frankie-labs/projects             → Frankie's projects gallery
+//   /frankie-labs/projects/<projectId> → a project (VibeCheck, AI Art, …)
 export default function App() {
   const route = useRoute();
   const seg = route.split('/').filter(Boolean);

@@ -454,7 +454,7 @@ const FEATURED_GRADIENTS = [
 ];
 
 // Eagerly import every committed profile JSON. Vite inlines these at build time
-// and rewrites paths for the /Games/ base, so the deploy always ships whatever
+// and rewrites paths for the /frankie-labs/ base, so the deploy always ships whatever
 // the Action has committed.
 const FEATURED: FeaturedProfile[] = Object.values(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
