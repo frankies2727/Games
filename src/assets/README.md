@@ -8,5 +8,5 @@ public-domain / royalty-free files — e.g. NASA's image library for space
 imagery). Don't add copyrighted stock, watermarked, or screenshot images.
 
 To use one, upload it via GitHub → **Add file → Upload files**, then it gets
-referenced from a component by importing it, so Vite handles the `/Games/` base
+referenced from a component by importing it, so Vite handles the `/frankie-labs/` base
 path and cache-busting automatically.
