@@ -1,13 +1,14 @@
 import { Suspense, useEffect } from 'react';
-import { GAMES, gameById } from './games';
+import { EXTERNAL_GAMES, GAMES, externalGameById, gameById } from './games';
 import { PROJECTS, projectById } from './projects';
 import { Gallery } from './components/Gallery';
 import { ProjectsGallery } from './components/ProjectsGallery';
 import { GameShell } from './components/GameShell';
 import { navigate, useRoute } from './lib/router';
 
-// Sends the visitor to an external project's real site (used when its in-app
-// URL is opened directly). `replace` keeps the gallery as the back target.
+// Sends the visitor to a separately-hosted project or game (used when its
+// in-app URL is opened directly). `replace` keeps the gallery as the back
+// target.
 function ExternalRedirect({ href }: { href: string }) {
   useEffect(() => { window.location.replace(href); }, [href]);
   return (
@@ -22,7 +23,7 @@ function ExternalRedirect({ href }: { href: string }) {
 //   /frankie-labs/                     → the projects gallery (home)
 //   /frankie-labs/projects/<projectId> → a project (VibeCheck, AI Art, …)
 //   /frankie-labs/games                → the games gallery
-//   /frankie-labs/play/<gameId>        → a game
+//   /frankie-labs/play/<gameId>        → a game (external ones redirect out)
 //
 // The projects gallery used to live at /projects while games were home; that
 // path still resolves (see the canonicalising effect below) so links shared
@@ -44,6 +45,10 @@ export default function App() {
       // Keyed by id so each game (re)mounts fresh — a new peer session per visit.
       return <GameShell key={seg[1]} def={def} onExit={() => navigate('games')} />;
     }
+    // A separately-hosted game reached by a direct URL / shared link → send the
+    // visitor to its real site instead of an empty in-app screen.
+    const external = externalGameById(seg[1]);
+    if (external) return <ExternalRedirect href={external.href} />;
     // Unknown game id → fall through to the games gallery below.
   }
 
@@ -80,6 +85,7 @@ export default function App() {
     return (
       <Gallery
         games={GAMES}
+        externalGames={EXTERNAL_GAMES}
         onSelect={(id) => navigate(`play/${id}`)}
         onBack={() => navigate('')}
       />

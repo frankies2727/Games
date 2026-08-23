@@ -29,7 +29,9 @@ export interface BoardProps<S extends BaseState> {
 // Game moves are opaque to the network layer.
 export type GameAction = Record<string, unknown>;
 
-export interface GameDefinition<S extends BaseState = BaseState> {
+// Presentation-only fields every gallery card needs, whether the game runs
+// in-app or is hosted somewhere else entirely.
+export interface GameCard {
   id: string;
   name: string;
   tagline: string;
@@ -40,6 +42,19 @@ export interface GameDefinition<S extends BaseState = BaseState> {
    * Use when a plain emoji can't express the icon (e.g. an animated glyph).
    */
   icon?: ReactNode;
+}
+
+/**
+ * A game that lives on its own site rather than in this app. It has no state,
+ * reducer or board here — the gallery card just links out to it. Mirrors how an
+ * external `ProjectDefinition` works.
+ */
+export interface ExternalGameDefinition extends GameCard {
+  /** Absolute URL of the hosted game; the card opens it in a new tab. */
+  href: string;
+}
+
+export interface GameDefinition<S extends BaseState = BaseState> extends GameCard {
   /** Fewest players needed to start (default 2). */
   minPlayers?: number;
   /** Most players a room seats (default 2). */
