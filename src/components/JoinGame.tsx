@@ -8,12 +8,15 @@ interface JoinGameProps {
   onPlayBot?: () => void;
   minPlayers?: number;
   maxPlayers?: number;
+  /** Seeds the form so a join that failed can be retried without retyping. */
+  initialRoomId?: string;
+  initialName?: string;
 }
 
-export function JoinGame({ gameName, tagline, onJoin, onPlayBot, minPlayers = 2, maxPlayers = 2 }: JoinGameProps) {
+export function JoinGame({ gameName, tagline, onJoin, onPlayBot, minPlayers = 2, maxPlayers = 2, initialRoomId = '', initialName = '' }: JoinGameProps) {
   const multi = maxPlayers > 2;
-  const [roomId, setRoomId] = useState('');
-  const [name, setName] = useState('');
+  const [roomId, setRoomId] = useState(initialRoomId);
+  const [name, setName] = useState(initialName);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-4 selection:bg-[#262B34]">

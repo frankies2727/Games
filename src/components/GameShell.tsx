@@ -40,21 +40,58 @@ function Chrome({ onExit, error, children }: { onExit: () => void; error?: strin
   );
 }
 
+// The handshake with a host on another network can take a few seconds while ICE
+// works through candidates (and, if the direct path is blocked, falls back to a
+// relay). Say so rather than showing a bare spinner — usePeerSession gives up
+// and returns to the room-code screen with a reason if it never lands.
+function Connecting() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 6000);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-6 min-h-[80vh] items-center justify-center px-4 text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-[#39414E]" />
+      <p className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Connecting to room…</p>
+      {slow && (
+        <p className="text-[10px] font-mono uppercase tracking-widest text-[#8A92A0] max-w-xs leading-relaxed">
+          Taking a moment — finding a route to the host. Make sure they still have the game open.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Online (peer-to-peer) flow: join a room code, lobby, then play.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function OnlineGame({ def, onExit, onPlayBot }: { def: GameDefinition<any>; onExit: () => void; onPlayBot: () => void }) {
   const { state, myId, conn, error, join, start, move, rematch, canManageBots, addBot, removeBot } = usePeerSession(def);
   const Board = def.Board;
+  // Remember what was typed: a join that fails drops back to this screen, and
+  // making someone re-enter the code and their name to try again is miserable.
+  const [lastTry, setLastTry] = useState({ roomId: '', name: '' });
+  const handleJoin = (roomId: string, name: string) => {
+    setLastTry({ roomId, name });
+    join(roomId, name);
+  };
 
   return (
     <Chrome onExit={onExit} error={error}>
       {conn === 'connecting' && !state ? (
-        <div className="flex flex-col gap-6 min-h-[80vh] items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-[#39414E]" />
-          <p className="text-xs font-mono uppercase tracking-widest text-[#9CA3AF]">Connecting to room…</p>
-        </div>
+        <Connecting />
       ) : !state ? (
-        <JoinGame gameName={def.name} tagline={def.tagline} onJoin={join} onPlayBot={def.botMove ? onPlayBot : undefined} minPlayers={def.minPlayers} maxPlayers={def.maxPlayers} />
+        <JoinGame
+          gameName={def.name}
+          tagline={def.tagline}
+          onJoin={handleJoin}
+          onPlayBot={def.botMove ? onPlayBot : undefined}
+          minPlayers={def.minPlayers}
+          maxPlayers={def.maxPlayers}
+          initialRoomId={lastTry.roomId}
+          initialName={lastTry.name}
+        />
       ) : state.status === 'waiting' ? (
         <Lobby
           gameName={def.name}

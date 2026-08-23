@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Peer, { DataConnection } from 'peerjs';
+import Peer, { DataConnection, PeerOptions } from 'peerjs';
 import { BaseState, ConnStatus, GameAction, GameDefinition, NetMessage } from '../types';
 
 // All rooms share the public PeerJS broker, so the host's peer id is derived
@@ -8,6 +8,87 @@ import { BaseState, ConnStatus, GameAction, GameDefinition, NetMessage } from '.
 // that id becomes the authoritative host; the second fails and joins as guest.
 const PREFIX = 'pn-gallery-v2';
 const hostIdFor = (gameId: string, code: string) => `${PREFIX}-${gameId}-${code}`;
+
+// ---- WebRTC transport ------------------------------------------------------
+// Two players on the same wifi link up over their LAN addresses, so passing a
+// room code across the couch needs no help at all. Across networks — a friend in
+// another state, someone on cellular, a school or office firewall — the direct
+// path is usually blocked and the data channel has to be relayed by a TURN
+// server. PeerJS's built-in defaults offer one STUN server plus its own shared
+// TURN on UDP 3478 only, with no TCP/TLS fallback, so wherever UDP is filtered
+// (or that shared relay is busy) ICE simply never completes.
+//
+// So: offer several relays, including TCP and TLS on 443 — the ports that
+// survive strict firewalls. These public relays are shared and best-effort;
+// point VITE_TURN_URLS at your own TURN server for a room that has to work
+// every time. See the "Playing across networks" section of the README.
+const env = import.meta.env as unknown as Record<string, string | undefined>;
+const customTurnUrls = (env.VITE_TURN_URLS ?? '')
+  .split(',')
+  .map((u) => u.trim())
+  .filter(Boolean);
+
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  ...(customTurnUrls.length
+    ? [{
+        urls: customTurnUrls,
+        username: env.VITE_TURN_USERNAME,
+        credential: env.VITE_TURN_CREDENTIAL,
+      }]
+    : [
+        {
+          urls: [
+            'turn:openrelay.metered.ca:80',
+            'turn:openrelay.metered.ca:443',
+            'turn:openrelay.metered.ca:443?transport=tcp',
+          ],
+          username: 'openrelayproject',
+          credential: 'openrelayproject',
+        },
+        {
+          urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'],
+          username: 'peerjs',
+          credential: 'peerjsp',
+        },
+      ]),
+];
+
+const PEER_OPTIONS: PeerOptions = { config: { iceServers: ICE_SERVERS } };
+
+// Nothing about the handshake is allowed to stall silently. Each attempt gets
+// CONNECT_TIMEOUT_MS to produce an open data channel; ICE can fail on one
+// candidate pair and succeed on the next, so we retry a few times, and
+// JOIN_DEADLINE_MS is the hard backstop that guarantees the "Connecting…"
+// spinner always resolves into either a lobby or an explanation.
+const CONNECT_TIMEOUT_MS = 12_000;
+const CONNECT_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 1_200; // breathing room so a fast failure can't spin the budget away
+const JOIN_DEADLINE_MS = 45_000;
+
+const UNREACHABLE = 'Could not reach the host. Check you both typed the same code, then try again.';
+const NO_BROKER = 'Could not reach the matchmaking server. Check your connection and try again.';
+
+// PeerJS error types turned into something a player can act on.
+const describeError = (type?: string) => {
+  switch (type) {
+    case 'peer-unavailable':
+      return 'No one is hosting that room code right now.';
+    case 'browser-incompatible':
+      return 'This browser cannot run peer-to-peer games.';
+    case 'network':
+    case 'server-error':
+    case 'socket-error':
+    case 'socket-closed':
+      return NO_BROKER;
+    case 'invalid-id':
+      return 'That room code has characters we cannot use — letters and numbers only.';
+    case 'ssl-unavailable':
+      return 'This page must be served over HTTPS to connect players.';
+    default:
+      return `Connection error (${type ?? 'unknown'}).`;
+  }
+};
 
 // Bots seated by the host carry a `bot-` id so they're never confused with a
 // real peer id (a PeerJS hash). The host drives them with the same botMove the
@@ -53,6 +134,33 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     if (errTimer.current) clearTimeout(errTimer.current);
     errTimer.current = setTimeout(() => setError(''), 5000);
   }, []);
+
+  // Every handshake watchdog is tracked so unmounting mid-join can't leave a
+  // timer running against a torn-down peer.
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const arm = useCallback((fn: () => void, ms: number) => {
+    const t = setTimeout(() => { timers.current.delete(t); fn(); }, ms);
+    timers.current.add(t);
+    return t;
+  }, []);
+  const disarm = useCallback((t: ReturnType<typeof setTimeout> | null) => {
+    if (t === null) return;
+    clearTimeout(t);
+    timers.current.delete(t);
+  }, []);
+
+  // Give up on a join that will never land: tear everything down and drop the
+  // player back on the room-code screen with a reason, rather than spinning.
+  const abortJoin = useCallback((msg: string) => {
+    for (const t of timers.current) clearTimeout(t);
+    timers.current.clear();
+    peerRef.current?.destroy();
+    peerRef.current = null;
+    connsRef.current = [];
+    showError(msg);
+    setConn('idle');
+    joinedRef.current = false;
+  }, [showError]);
 
   // --- Host: persist authoritative state + push a per-viewer view to each ---
   const viewFor = useCallback(
@@ -167,35 +275,99 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
   }, []);
 
   const joinAsGuest = useCallback((code: string, name: string) => {
-    const peer = new Peer();
+    const peer = new Peer(PEER_OPTIONS);
     peerRef.current = peer;
     isHostRef.current = false;
     setIsHost(false);
 
-    peer.on('open', (id) => {
-      myIdRef.current = id;
-      setMyId(id);
+    let live = false; // the data channel to the host has opened
+    let attempts = 0;
+    let reason = UNREACHABLE; // most useful thing we can say if we run out of road
+    let attemptTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const deadline = arm(() => { if (!live) abortJoin(reason); }, JOIN_DEADLINE_MS);
+
+    const giveUp = () => {
+      if (live) return;
+      disarm(attemptTimer);
+      disarm(deadline);
+      abortJoin(reason);
+    };
+
+    // One handshake attempt. A stalled attempt is torn down and replaced rather
+    // than left half-open: PeerJS keeps a failed DataConnection around with no
+    // `open` and — because it never opened — no `close` either.
+    const attempt = () => {
+      if (live || peer.destroyed) return;
+      disarm(attemptTimer);
+      // Signalling dropped (laptop slept, cellular hiccup). Get the socket back
+      // first; `open` fires again and re-drives this.
+      if (peer.disconnected) {
+        try { peer.reconnect(); } catch { giveUp(); }
+        return;
+      }
+      if (attempts >= CONNECT_ATTEMPTS) { giveUp(); return; }
+      attempts += 1;
+
+      // Tearing down the previous attempt makes it emit its own failure events.
+      // Stamping each attempt lets those late events be ignored, so one dead
+      // connection can't cascade through the whole retry budget at once.
+      const gen = attempts;
+      const current = () => !live && gen === attempts && !peer.destroyed;
+      const retry = () => { if (current()) { disarm(attemptTimer); attemptTimer = arm(attempt, RETRY_DELAY_MS); } };
+
+      const prev = connsRef.current[0];
+      if (prev) { try { prev.close(); } catch { /* already dead */ } }
+
       const c = peer.connect(hostIdFor(def.id, code), { reliable: true });
       connsRef.current = [c];
+      attemptTimer = arm(attempt, CONNECT_TIMEOUT_MS);
+
       c.on('open', () => {
+        live = true;
+        disarm(attemptTimer);
+        disarm(deadline);
+        connsRef.current = [c]; // whichever attempt won is the one we talk on
         setConn('connected');
         c.send({ kind: 'join', name } as NetMessage<S>);
       });
       c.on('data', (d) => handleHostMessage(d as NetMessage<S>));
+      // ICE gave up on this candidate pair. Without this listener the failure is
+      // completely silent — it is what left the join screen spinning forever.
+      c.on('error', retry);
+      c.on('iceStateChanged', (s) => { if (s === 'failed' || s === 'closed') retry(); });
       c.on('close', () => {
+        if (!live) { retry(); return; }
         showError('Host left the game.');
         setConn('idle');
         setState(null);
         stateRef.current = null;
         joinedRef.current = false;
       });
+    };
+
+    peer.on('open', (id) => {
+      myIdRef.current = id;
+      setMyId(id);
+      attempt();
+    });
+    peer.on('disconnected', () => {
+      if (!peer.destroyed) { try { peer.reconnect(); } catch { /* raced a destroy */ } }
     });
     peer.on('error', (err) => {
-      showError(`Connection error (${(err as { type?: string }).type ?? 'unknown'}).`);
-      setConn('idle');
-      joinedRef.current = false;
+      const type = (err as { type?: string }).type;
+      reason = describeError(type);
+      if (live) { showError(reason); return; } // already playing: just surface it
+      // The host's broker registration can be briefly stale, and a dropped
+      // socket often comes straight back — both are worth one more round trip.
+      if ((type === 'peer-unavailable' || type === 'network') && attempts < CONNECT_ATTEMPTS) {
+        disarm(attemptTimer);
+        attemptTimer = arm(attempt, RETRY_DELAY_MS);
+        return;
+      }
+      giveUp();
     });
-  }, [def.id, handleHostMessage, showError]);
+  }, [def.id, handleHostMessage, showError, arm, disarm, abortJoin]);
 
   const join = useCallback((roomId: string, name: string) => {
     if (joinedRef.current) return;
@@ -204,10 +376,16 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     joinedRef.current = true;
     setConn('connecting');
 
-    const peer = new Peer(hostIdFor(def.id, code));
+    const peer = new Peer(hostIdFor(def.id, code), PEER_OPTIONS);
     peerRef.current = peer;
 
+    // Claiming the room code is the first round trip of the whole flow. If the
+    // broker never answers (offline, blocked, down) neither `open` nor `error`
+    // ever fires, so nothing downstream can rescue the join but this.
+    const claimTimer = arm(() => abortJoin(NO_BROKER), CONNECT_TIMEOUT_MS);
+
     peer.on('open', (id) => {
+      disarm(claimTimer);
       isHostRef.current = true;
       setIsHost(true);
       myIdRef.current = id;
@@ -220,29 +398,50 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     peer.on('connection', (c) => {
       connsRef.current.push(c);
       c.on('open', () => {
+        // A guest whose first attempt failed ICE opens a second connection under
+        // the same peer id; keep only the live one so state isn't pushed into a
+        // channel nobody is listening on.
+        connsRef.current = connsRef.current.filter((x) => x === c || x.peer !== c.peer);
         if (stateRef.current) c.send({ kind: 'state', state: viewFor(stateRef.current, c.peer) } as NetMessage<S>);
       });
       c.on('data', (d) => handleGuestMessage(c, d as NetMessage<S>));
+      c.on('error', () => {
+        // A guest attempt that never opened: drop it so it can't linger in the
+        // broadcast list. Their retry arrives as a fresh `connection`.
+        if (!c.open) connsRef.current = connsRef.current.filter((x) => x !== c);
+      });
       c.on('close', () => {
         connsRef.current = connsRef.current.filter((x) => x !== c);
+        // A retrying guest can drop a stale channel while a fresh one is already
+        // live — that isn't someone leaving, so don't unseat them.
+        if (connsRef.current.some((x) => x.peer === c.peer)) return;
         hostRemove(c.peer);
         showError('Opponent disconnected.');
       });
     });
 
+    // The broker drops idle sockets and backgrounded tabs. Without
+    // re-registering, the host's room code quietly stops resolving: friends are
+    // told nobody is hosting, or worse, claim the free code and end up hosting
+    // their own empty copy of the room.
+    peer.on('disconnected', () => {
+      if (!peer.destroyed) { try { peer.reconnect(); } catch { /* raced a destroy */ } }
+    });
+
     peer.on('error', (err) => {
       const type = (err as { type?: string }).type;
       if (type === 'unavailable-id') {
+        disarm(claimTimer);
         peer.destroy();
         peerRef.current = null;
         joinAsGuest(code, name); // room already hosted -> become guest
+      } else if (isHostRef.current) {
+        showError(describeError(type)); // room is already up; keep it running
       } else {
-        showError(`Connection error (${type ?? 'unknown'}).`);
-        setConn('idle');
-        joinedRef.current = false;
+        abortJoin(describeError(type));
       }
     });
-  }, [def, hostSeat, handleGuestMessage, hostRemove, joinAsGuest, showError]);
+  }, [def, hostSeat, handleGuestMessage, hostRemove, joinAsGuest, showError, viewFor, arm, disarm, abortJoin]);
 
   const start = useCallback(() => {
     if (isHostRef.current) hostStart();
@@ -280,9 +479,14 @@ export function usePeerSession<S extends BaseState>(def: GameDefinition<S>): Ses
     }
   }, [state, def, commit]);
 
-  useEffect(() => () => {
-    if (errTimer.current) clearTimeout(errTimer.current);
-    peerRef.current?.destroy();
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      if (errTimer.current) clearTimeout(errTimer.current);
+      for (const t of pending) clearTimeout(t);
+      pending.clear();
+      peerRef.current?.destroy();
+    };
   }, []);
 
   const canManageBots = isHost && !!def.botMove;
