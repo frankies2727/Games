@@ -1,4 +1,4 @@
-# Sebaz Games Lab
+# Frankie Labs
 
 A gallery of chill, real-time multiplayer browser games. Play over a shared
 room code (**2 players**, or **2–4** for Ludo, **2–5** for Lotería, Blackjack &
