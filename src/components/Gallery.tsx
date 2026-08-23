@@ -54,7 +54,7 @@ export function Gallery({ games, onSelect, onOpenProjects }: GalleryProps) {
       <div className="max-w-4xl mx-auto">
         <header className="text-center mb-12 sm:mb-16">
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tighter uppercase italic text-[#F5F6F7]">
-            Sebaz Games Lab
+            Frankie Labs
           </h1>
           <p className="text-xs sm:text-sm font-mono uppercase tracking-[0.3em] text-[#9CA3AF] mt-4">
             Chill · Real-time multiplayer games · Play with friends &amp; bots

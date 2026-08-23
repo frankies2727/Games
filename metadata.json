@@ -1,5 +1,5 @@
 {
-  "name": "Paper Numbers Game",
-  "description": "A real-time multiplayer 2-player paper game where one player rushes to find a number while the other circles dots on their phone.",
+  "name": "Frankie Labs",
+  "description": "A gallery of real-time multiplayer browser games — play over a shared room code or against built-in bots — alongside personal projects including VibeCheck, Place Timelapse and an AI Art gallery.",
   "requestFramePermissions": []
 }
