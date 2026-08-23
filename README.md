@@ -84,10 +84,10 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
 
-## ⚡ Projects portal
+## ⚡ Projects
 
-Tap the **mini Pikachu** in the top-right of the home screen to jump into
-**Frankie's Projects** — a little gallery of other things I'm building. First up
+The home screen is the projects gallery — the things I'm building. (Tap the
+**mini Pikachu** in the top-right to jump over to the games.) First up
 is **VibeCheck**: type any company (or tap a featured profile) to generate an
 immersive, scrollable visual story — the rundown, fast facts, a timeline, and
 fun facts. Two key-free data sources, both working for every visitor:
@@ -127,10 +127,9 @@ Also in the gallery:
 Two spots load from fixed paths so you can refresh them whenever you like (a new
 one each month works great) — just upload/replace one file, no code change:
 
-- `public/projects/homescreen.jpg` — the big hero banner atop the **Frankie's
-  Projects** gallery.
-- `public/projects/icon.png` — the little icon on the **My Projects** portal
-  button in the top-right of the games home screen.
+- `public/projects/homescreen.jpg` — the big hero banner atop the home screen.
+- `public/projects/icon.png` — the little icon on the **Games** portal button in
+  the top-right of the home screen.
 
 Upload a file with that exact name (GitHub → **Add file → Upload files**) and it
 appears on the next deploy. If a file is missing, that spot falls back to the
@@ -138,7 +137,7 @@ Pikachu icon so nothing breaks. See
 [public/projects/README.md](public/projects/README.md) for formats and sizing.
 
 Each project is a self-contained component under `src/projects/` registered in
-`src/projects/index.ts`, and is **lazy-loaded** so opening the games home screen
+`src/projects/index.ts`, and is **lazy-loaded** so opening the home screen
 never downloads a project's (heavier) code until you actually open it.
 
 Every game is fully **peer-to-peer**: the two browsers connect directly via WebRTC

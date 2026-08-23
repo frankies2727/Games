@@ -5,7 +5,7 @@ interface PikachuIconProps {
 /**
  * A cute, front-facing standing Pikachu with a soft glow, drawn as an original
  * inline SVG — no external assets, scales crisply at any size. Used as the
- * "secret" button on the games home screen that jumps to the projects gallery.
+ * "secret" button on the home screen that jumps to the games gallery.
  */
 export function PikachuIcon({ className }: PikachuIconProps) {
   return (
