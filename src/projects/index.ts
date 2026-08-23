@@ -2,7 +2,7 @@ import { lazy } from 'react';
 import { ProjectDefinition } from './types';
 
 // Lazy-loaded so its heavier deps (motion, file-saver, html-to-image) only
-// download when a visitor actually opens the project — the games home screen
+// download when a visitor actually opens the project — the home screen
 // stays lean.
 const VibeCheck = lazy(() =>
   import('./vibecheck/VibeCheck').then((m) => ({ default: m.VibeCheck })),

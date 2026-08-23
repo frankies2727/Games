@@ -1,9 +1,8 @@
-import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { ProjectDefinition } from '../projects/types';
 import { PikachuIcon } from './PikachuIcon';
 
-// Monthly hero image for the "Frankie's Projects" home screen.
+// Monthly hero image for the home screen.
 //
 // This points at a fixed, stable path — drop (or replace) a single file at
 // `public/projects/homescreen.jpg` via GitHub → Add file → Upload files and it
@@ -15,27 +14,58 @@ import { PikachuIcon } from './PikachuIcon';
 // `homescreen.png` / `homescreen.webp` and upload with that name.
 const HOMESCREEN_IMAGE = `${import.meta.env.BASE_URL}projects/homescreen.jpg`;
 
+// Swappable icon for the top-right games portal button.
+//
+// Like the hero image, this points at a fixed, stable path — drop (or replace)
+// a single file at `public/projects/icon.png` via GitHub → Add file → Upload
+// files and it shows up here automatically, no code change needed. If the file
+// isn't there, the button falls back to the built-in Pikachu icon, so nothing
+// breaks when the slot is empty. (The path still says `projects/` because that
+// is where the file already lives — renaming it would orphan the upload.)
+//
+// A small square image with a transparent background looks best. Prefer another
+// format? Change the extension on this one line (e.g. `icon.jpg` / `icon.webp`).
+const GAMES_ICON = `${import.meta.env.BASE_URL}projects/icon.png`;
+
 interface ProjectsGalleryProps {
   projects: ProjectDefinition[];
   onSelect: (id: string) => void;
-  onBack: () => void;
+  onOpenGames: () => void;
 }
 
-export function ProjectsGallery({ projects, onSelect, onBack }: ProjectsGalleryProps) {
+export function ProjectsGallery({ projects, onSelect, onOpenGames }: ProjectsGalleryProps) {
   // Assume the monthly image is present; if it 404s we fall back to Pikachu.
   const [heroFailed, setHeroFailed] = useState(false);
+  // Same for the custom games icon.
+  const [iconFailed, setIconFailed] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#0F1117] text-[#E2E4E8] font-sans selection:bg-[#262B34] px-4 py-12 sm:py-16">
-      <div className="max-w-5xl mx-auto">
-        <button
-          onClick={onBack}
-          className="group inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-widest text-[#9CA3AF] hover:text-[#F5F6F7] transition-colors mb-10"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-          Back to games
-        </button>
+      {/* Floating portal → the games gallery. */}
+      <button
+        onClick={onOpenGames}
+        title="Play a game"
+        aria-label="Open the games gallery"
+        className="group fixed top-4 right-4 z-50 flex items-center gap-2 rounded-full border-2 border-[#39414E] bg-[#1A1D24]/90 backdrop-blur-md pl-1.5 pr-1.5 sm:pr-3 py-1.5 shadow-[3px_3px_0px_#454C5A] hover:shadow-[1px_1px_0px_#454C5A] hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+      >
+        <span className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 drop-shadow-[0_0_6px_rgba(247,208,44,0.5)] group-hover:animate-bounce">
+          {iconFailed ? (
+            <PikachuIcon className="w-full h-full" />
+          ) : (
+            <img
+              src={GAMES_ICON}
+              alt="Games"
+              onError={() => setIconFailed(true)}
+              className="w-full h-full object-contain rounded-full"
+            />
+          )}
+        </span>
+        <span className="hidden sm:inline text-[10px] font-mono font-bold uppercase tracking-widest text-[#F5F6F7]">
+          Games
+        </span>
+      </button>
 
+      <div className="max-w-5xl mx-auto">
         <header className="text-center mb-12 sm:mb-16">
           {heroFailed ? (
             <div className="flex items-center justify-center mb-5">
@@ -47,14 +77,14 @@ export function ProjectsGallery({ projects, onSelect, onBack }: ProjectsGalleryP
             <div className="mb-8 sm:mb-10">
               <img
                 src={HOMESCREEN_IMAGE}
-                alt="Frankie's Projects"
+                alt="Frankie Labs"
                 onError={() => setHeroFailed(true)}
                 className="w-full max-h-64 sm:max-h-80 object-cover rounded-3xl border border-white/10 shadow-2xl"
               />
             </div>
           )}
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tighter uppercase italic text-[#F5F6F7]">
-            Frankie&apos;s Projects
+            Frankie Labs
           </h1>
           <p className="text-xs sm:text-sm font-mono uppercase tracking-[0.3em] text-[#9CA3AF] mt-4">
             A lab of awesome things I&apos;m building · pick one

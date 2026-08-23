@@ -1,4 +1,4 @@
-# Frankie's Projects — swappable images
+# Frankie Labs — swappable images
 
 Drop your images here to customize the projects area. Swap them whenever you
 like (a fresh one every month works great) — no code change needed. Upload a
@@ -13,7 +13,7 @@ Pikachu, so nothing breaks while a slot is empty.
 public/projects/homescreen.jpg
 ```
 
-The big banner at the top of the **Frankie's Projects** gallery.
+The big banner at the top of the home screen.
 
 - **Format:** JPG is the default. To use PNG or WebP instead, name the file
   `homescreen.png` / `homescreen.webp` and update the one-line `HOMESCREEN_IMAGE`
@@ -21,14 +21,14 @@ The big banner at the top of the **Frankie's Projects** gallery.
 - **Sizing:** A wide image works best (the banner is capped in height and
   cropped to fit). Roughly 1600×800 or any 2:1-ish landscape looks sharp.
 
-## 2. Top-right "My Projects" button icon
+## 2. Top-right "Games" button icon
 
 ```
 public/projects/icon.png
 ```
 
-The little icon on the **My Projects** portal button in the top-right corner of
-the games home screen.
+The little icon on the **Games** portal button in the top-right corner of
+the home screen.
 
 - **Format:** PNG is the default (transparency looks best). To use another
   format, name the file `icon.jpg` / `icon.webp` and update the one-line
