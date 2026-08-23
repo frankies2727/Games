@@ -171,6 +171,31 @@ the bot after each move.
 > The room's "host" is whoever joins the code first; their browser is the
 > authoritative game state. If they close the tab, the game ends.
 
+### Playing across networks
+
+Two players on the same wifi connect directly over their local addresses. Once
+the players are on different networks — a friend in another state, someone on
+cellular data, a school or office wifi — that direct path is usually blocked and
+the connection has to be relayed through a **TURN** server.
+
+The app ships with a set of free public relays (offered over UDP, TCP and TLS on
+port 443, so they get through strict firewalls). They're shared and best-effort,
+so if joins start failing you can point the game at your own TURN server —
+[coturn](https://github.com/coturn/coturn) self-hosted, or a hosted provider —
+by setting these at build time (e.g. in `.env.local`, or as repository secrets
+wired into the Pages workflow):
+
+```
+VITE_TURN_URLS="turn:turn.example.com:3478,turns:turn.example.com:5349"
+VITE_TURN_USERNAME="username"
+VITE_TURN_CREDENTIAL="password"
+```
+
+When `VITE_TURN_URLS` is set it replaces the public relays entirely.
+
+If a join can't be completed, the room-code screen comes back with the reason
+instead of spinning — the handshake retries a few times and then gives up.
+
 ## Run locally
 
 **Prerequisites:** Node.js
