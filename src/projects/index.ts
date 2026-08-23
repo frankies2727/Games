@@ -29,7 +29,6 @@ export const PROJECTS: ProjectDefinition[] = [
       'Type any company or tap a featured profile to generate a highly visual, scrollable story — the rundown, fast facts, a timeline and fun facts, from Wikipedia plus web-grounded profiles pre-baked offline. No API key needed.',
     emoji: '⚡',
     gradient: 'from-[#ccff00] via-[#8fae00] to-[#0a0a0a]',
-    status: 'Live',
     Component: VibeCheck,
   },
   {
@@ -40,7 +39,6 @@ export const PROJECTS: ProjectDefinition[] = [
       'Watch any place on Earth change over time — a year of NASA satellite imagery (no key, exports a real video) or the ground-level Street View history of your memorable spots. Search, play, scrub the timeline.',
     emoji: '🌍',
     gradient: 'from-[#0ea5e9] via-[#0f766e] to-[#0a0a0a]',
-    status: 'Live',
     Component: PlaceTimelapse,
   },
   {
@@ -51,7 +49,6 @@ export const PROJECTS: ProjectDefinition[] = [
       'Browse AI-generated artwork from creators around the world and copy the exact prompt behind any image with one tap. Every piece credits its creator, links to the original, tags a theme, and names the AI model used. Search and filter by model.',
     emoji: '🎨',
     gradient: 'from-[#a855f7] via-[#6d28d9] to-[#0a0a0a]',
-    status: 'Live',
     Component: AIArt,
   },
   {
@@ -62,7 +59,6 @@ export const PROJECTS: ProjectDefinition[] = [
       'The rigorous, always-current dashboard for Govbot — the bot that auto-posts legislative bill updates. It tracks every post across Bluesky, X, Threads and Instagram (filterable, with live Bluesky feeds and links to each account), built automatically from the post history to raise awareness of the tool.',
     emoji: '🏛️',
     gradient: 'from-[#2563eb] via-[#1e3a8a] to-[#0a0a0a]',
-    status: 'Live',
     href: 'https://frankies2727.github.io/CHN-SocialMedia-Govbot-Main/',
   },
 ];

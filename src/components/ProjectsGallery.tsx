@@ -99,17 +99,12 @@ export function ProjectsGallery({ projects, onSelect, onOpenGames }: ProjectsGal
                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/25 transition-colors duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
 
-                {/* Top row lives in normal flow (mb-auto pushes the copy to the
-                    bottom), so a long description can never grow up under the
-                    badges and collide with the title. */}
-                <div className="relative z-10 flex items-center gap-3 mb-auto">
-                  <span className="w-12 h-12 flex items-center justify-center text-2xl rounded-2xl bg-white/15 backdrop-blur-md border border-white/20">
-                    {project.emoji}
-                  </span>
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-white bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/15">
-                    {project.status}
-                  </span>
-                </div>
+                {/* The emoji lives in normal flow and mb-auto pushes the copy to
+                    the bottom, so a long description can never grow up under it
+                    and collide with the title. */}
+                <span className="relative z-10 mb-auto w-12 h-12 flex items-center justify-center text-2xl rounded-2xl bg-white/15 backdrop-blur-md border border-white/20">
+                  {project.emoji}
+                </span>
 
                 <div className="relative z-10 mt-6">
                   <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white drop-shadow-md">
