@@ -15,8 +15,6 @@ export interface ProjectDefinition {
   emoji: string;
   /** Tailwind gradient classes for the card background, e.g. "from-... to-...". */
   gradient: string;
-  /** Lifecycle badge, e.g. "Live", "In Progress", "Prototype". */
-  status: string;
   /**
    * The full-screen in-app project. Receives `onExit` to go back to the gallery.
    * Provide this OR `href` (an external link).
