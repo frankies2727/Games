@@ -701,3 +701,50 @@ export function buildDeck(count: number): DealtQuestion[] {
 }
 
 export const TOTAL_QUESTIONS = citizenshipQuestions.length;
+
+// ---- resource categories (for The Civic Path) -----------------------------
+// Every civics question also maps to one of four "resource" categories, so a
+// correct answer in The Civic Path yields a resource card of that kind.
+export type Category = 'history' | 'geography' | 'legislative' | 'rights';
+
+export const CATEGORY_META: Record<Category, { label: string; emoji: string; color: string }> = {
+  history: { label: 'History', emoji: '📜', color: '#E9C46A' },
+  geography: { label: 'Geography', emoji: '🗺️', color: '#2A9D8F' },
+  legislative: { label: 'Legislative', emoji: '🏛️', color: '#4361EE' },
+  rights: { label: 'Rights', emoji: '⚖️', color: '#E63946' },
+};
+
+export const CATEGORIES: Category[] = ['history', 'geography', 'legislative', 'rights'];
+
+// Numeric id range helper: idsIn(1, 5) -> ['q1','q2','q3','q4','q5'].
+const idsIn = (from: number, to: number): string[] => {
+  const out: string[] = [];
+  for (let i = from; i <= to; i++) out.push('q' + i);
+  return out;
+};
+
+// Assign each question to a resource category. Broadly: Legislative =
+// Constitution + how government works; Rights = freedoms & responsibilities;
+// History = the American story + symbols/holidays; Geography = places.
+const CATEGORY_BY_ID: Record<string, Category> = {};
+for (const id of [...idsIn(1, 5), 'q7', 'q11', 'q12', ...idsIn(13, 38)]) CATEGORY_BY_ID[id] = 'legislative';
+for (const id of ['q6', 'q9', 'q10', ...idsIn(39, 48)]) CATEGORY_BY_ID[id] = 'rights';
+for (const id of ['q8', ...idsIn(49, 78), ...idsIn(87, 91)]) CATEGORY_BY_ID[id] = 'history';
+for (const id of idsIn(79, 86)) CATEGORY_BY_ID[id] = 'geography';
+
+export const categoryOf = (id: string): Category => CATEGORY_BY_ID[id] ?? 'legislative';
+
+// Deal a question of a specific category (options shuffled). Falls back to any
+// question if the category somehow has none.
+export function dealFromCategory(category: Category): DealtQuestion {
+  const pool = citizenshipQuestions.filter((q) => categoryOf(q.id) === category);
+  const src = (pool.length ? pool : citizenshipQuestions)[
+    Math.floor(Math.random() * (pool.length ? pool.length : citizenshipQuestions.length))
+  ];
+  return deal(src);
+}
+
+// A random category, weighted evenly across the four.
+export function randomCategory(): Category {
+  return CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+}

@@ -80,19 +80,33 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
   never weighs down the rest of the site. Answers never travel on the wire —
   game state only carries which words have been claimed — so nothing leaks to a
   peer's console.
-- **Citizenship Trivia** — a study game for the U.S. naturalization test, played
-  **solo or with 2–4 friends** over a shared room code (no sign-in, no bots).
-  Everyone answers the **same** question at once from the **official USCIS civics
-  questions** (options shuffled each time); once the whole room has locked in, the
-  round **reveals** — the correct choice, a short fact, and each player's ✓/✗ —
-  and scores update. Most correct after **10 questions** wins (or, solo, you're
-  scored against the USCIS **60% pass mark**). The answer key never travels on
-  the wire before a reveal: game state masks each question's correct answer and
-  every other player's pick (`redact`) until everyone has answered, so nothing
-  leaks to a peer's console. Time-sensitive and location-specific questions from
-  the official 100 (current office-holders, your state's
-  senators/representative/governor/capital) are left out so every answer stays
-  correct.
+- **Road to Citizenship** — a **hub of citizenship games** for the U.S.
+  naturalization test, **solo or 1–6 friends** over one room code (with bots to
+  fill empty seats). After you join and enter your name, the **host picks the
+  game** in the lobby:
+  - **Citizenship Trivia** — everyone answers the **same** question at once from
+    the **official USCIS civics questions** (options shuffled each time); once the
+    whole room has locked in, the round **reveals** — the correct choice, a short
+    fact, and each player's ✓/✗ — and scores update. Most correct after **10
+    questions** wins (solo, you're scored against the USCIS **60% pass mark**).
+  - **The Civic Path** — a **strategy board game**. On your turn you answer a
+    random-category civics question to earn a **resource card** (📜 History,
+    🗺️ Geography, 🏛️ Legislative, ⚖️ Rights). Complete a full set to build a
+    **Civic Milestone**; **trade** with the bank (4:1) or **negotiate** card
+    swaps with other players to fill the sets you're short on. Build **3
+    milestones** to unlock the **citizenship exam**, then answer **6 of 10**
+    official USCIS questions to win (miss it and you lose a milestone — regroup
+    and try again). Empty seats fill with **bots** on three difficulty tiers
+    (**Novice / Citizen / Scholar** set how often they answer correctly) and with
+    distinct personas — **Govbot-y** aggressively hoards Legislative & History
+    cards, so humans have to adapt.
+
+  The answer key never travels on the wire before it's safe: game state masks
+  each question's correct answer, other players' picks, and unanswered exam
+  questions (`redact`) so nothing leaks to a peer's console. Time-sensitive and
+  location-specific questions from the official 100 (current office-holders, your
+  state's senators/representative/governor/capital) are left out so every answer
+  stays correct.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
@@ -167,9 +181,15 @@ Each game is a self-contained `GameDefinition` in `src/games/` (initial state,
 peer-to-peer networking in `src/hooks/usePeerSession.ts` is game-agnostic. Set
 `minPlayers`/`maxPlayers` (both default 2) to seat more than two — the lobby, the
 "Play vs Computer" flow, and the host's start gate all adapt automatically. A
-game that reads well alone, like **Citizenship Trivia**, can set `minPlayers: 1`
-so the host can also start solo (its `redact` keeps hidden-answer games honest —
-see below).
+game that reads well alone can set `minPlayers: 1` so the host can also start
+solo (its `redact` keeps hidden-answer games honest — see below).
+
+A single card can also be a **hub of several games**: **Road to Citizenship**
+(`src/games/road/`) is one `GameDefinition` whose `LobbyExtra` lets the host pick
+a sub-game after everyone joins, and whose `reducer`/`Board`/`redact`/`botMove`
+just delegate to the chosen sub-game (Citizenship Trivia or The Civic Path). Each
+sub-game keeps its own nested state and returns any game-over lift to the hub, so
+new games can be added under the same card without touching the networking.
 
 To make a peer-to-peer game playable solo against CPUs, add an optional `botMove(state, botId)` to its
 definition that returns the action the bot should take (or `null` when it isn't
