@@ -1,5 +1,5 @@
 import { Suspense, useEffect } from 'react';
-import { EXTERNAL_GAMES, GAMES, externalGameById, gameById } from './games';
+import { EXTERNAL_GAMES, GAMES, SOLO_GAMES, externalGameById, gameById, soloGameById } from './games';
 import { PROJECTS, projectById } from './projects';
 import { Gallery } from './components/Gallery';
 import { ProjectsGallery } from './components/ProjectsGallery';
@@ -45,6 +45,26 @@ export default function App() {
       // Keyed by id so each game (re)mounts fresh — a new peer session per visit.
       return <GameShell key={seg[1]} def={def} onExit={() => navigate('games')} />;
     }
+    // A self-contained single-player game → its own full-screen component,
+    // lazy-loaded, with onExit routing back to the games gallery.
+    const solo = soloGameById(seg[1]);
+    if (solo) {
+      const Solo = solo.Component;
+      return (
+        <Suspense
+          fallback={
+            <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center gap-6">
+              <div className="w-16 h-16 border-4 border-white/10 border-t-[#ccff00] rounded-full animate-spin" />
+              <p className="text-gray-400 font-mono text-sm uppercase tracking-widest animate-pulse">
+                Loading {solo.name}…
+              </p>
+            </div>
+          }
+        >
+          <Solo key={seg[1]} onExit={() => navigate('games')} />
+        </Suspense>
+      );
+    }
     // A separately-hosted game reached by a direct URL / shared link → send the
     // visitor to its real site instead of an empty in-app screen.
     const external = externalGameById(seg[1]);
@@ -85,6 +105,7 @@ export default function App() {
     return (
       <Gallery
         games={GAMES}
+        soloGames={SOLO_GAMES}
         externalGames={EXTERNAL_GAMES}
         onSelect={(id) => navigate(`play/${id}`)}
         onBack={() => navigate('')}

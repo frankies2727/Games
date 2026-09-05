@@ -80,6 +80,16 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
   never weighs down the rest of the site. Answers never travel on the wire —
   game state only carries which words have been claimed — so nothing leaks to a
   peer's console.
+- **Citizenship Trivia** — a **single-player** study game for the U.S.
+  naturalization test. Pick a length (10, 20, 50, or all questions) and work
+  through the **official USCIS civics questions**, drawn at random with the
+  answer choices shuffled each time. Each answer reveals the correct choice and
+  a short fact, and the end screen scores you out of the total and against the
+  USCIS **60% pass mark** (with a little confetti if you clear it). No room
+  code, no sign-in, no bots — just you and the questions. Time-sensitive and
+  location-specific questions from the official 100 (current office-holders,
+  your state's senators/representative/governor/capital) are left out so every
+  answer stays correct.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
@@ -155,7 +165,15 @@ peer-to-peer networking in `src/hooks/usePeerSession.ts` is game-agnostic. Set
 `minPlayers`/`maxPlayers` (both default 2) to seat more than two — the lobby, the
 "Play vs Computer" flow, and the host's start gate all adapt automatically.
 
-To make a game playable solo, add an optional `botMove(state, botId)` to its
+A **single-player** game that doesn't fit the peer-to-peer model (no room code,
+no reducer, no bots) — like an educational quiz — is a `SoloGameDefinition`
+instead: a card plus a self-contained full-screen `Component` (given `onExit`),
+exactly like a `ProjectDefinition`. Add it to `SOLO_GAMES` in
+`src/games/index.ts` (lazy-load the component so its code only downloads when
+opened) and it appears as a normal gallery card that routes to `/play/<id>`.
+**Citizenship Trivia** is the first one.
+
+To make a peer-to-peer game playable solo, add an optional `botMove(state, botId)` to its
 definition that returns the action the bot should take (or `null` when it isn't
 the bot's turn). Games with a `botMove` automatically get the **Play vs Computer**
 button; `src/hooks/useLocalSession.ts` runs the same `reducer` locally and drives

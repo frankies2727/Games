@@ -1,19 +1,21 @@
 import { ArrowLeft } from 'lucide-react';
-import { ExternalGameDefinition, GameDefinition } from '../types';
+import { ExternalGameDefinition, GameDefinition, SoloGameDefinition } from '../types';
 
 interface GalleryProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   games: GameDefinition<any>[];
   /** Separately-hosted games; rendered as the same card but linking out. */
   externalGames?: ExternalGameDefinition[];
+  /** Self-contained single-player games; the same card, routed to an in-app screen. */
+  soloGames?: SoloGameDefinition[];
   onSelect: (id: string) => void;
   onBack: () => void;
 }
 
-export function Gallery({ games, externalGames = [], onSelect, onBack }: GalleryProps) {
-  // One list so external games sit in the same grid as the in-app ones.
+export function Gallery({ games, externalGames = [], soloGames = [], onSelect, onBack }: GalleryProps) {
+  // One list so solo and external games sit in the same grid as the in-app ones.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cards: (GameDefinition<any> | ExternalGameDefinition)[] = [...games, ...externalGames];
+  const cards: (GameDefinition<any> | ExternalGameDefinition | SoloGameDefinition)[] = [...games, ...soloGames, ...externalGames];
 
   return (
     <div className="min-h-screen bg-[#0F1117] text-[#E2E4E8] font-sans selection:bg-[#262B34] px-4 py-12 sm:py-20">

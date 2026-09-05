@@ -1,4 +1,5 @@
-import { ExternalGameDefinition, GameDefinition } from '../types';
+import { lazy } from 'react';
+import { ExternalGameDefinition, GameDefinition, SoloGameDefinition } from '../types';
 import { paperNumbers } from './paperNumbers';
 import { ticTacToe } from './ticTacToe';
 import { connectFour } from './connectFour';
@@ -14,6 +15,23 @@ import { crossword } from './crossword';
 // The gallery of available games (most are 2-player; Ludo, Lotería & Crossword seat more).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const GAMES: GameDefinition<any>[] = [paperNumbers, ticTacToe, connectFour, highLow, battleship, dotsAndBoxes, ludo, uno, blackjack, loteria, crossword];
+
+// Self-contained single-player games. They have no peer session/reducer/board,
+// so they live here rather than in GAMES — the gallery renders the same card
+// but routes to the game's own full-screen component. Lazy-loaded so their code
+// (and question data) only downloads when a visitor actually opens the game.
+const Citizenship = lazy(() => import('./citizenship/Citizenship'));
+
+export const SOLO_GAMES: SoloGameDefinition[] = [
+  {
+    id: 'citizenship',
+    name: 'Citizenship Trivia',
+    tagline: 'Solo practice for the U.S. naturalization civics test — official USCIS questions.',
+    accent: '#B22234',
+    emoji: '🗽',
+    Component: Citizenship,
+  },
+];
 
 // Games hosted on their own site. They have no in-app state/reducer/board, so
 // they live here rather than in GAMES — the gallery renders the same card but
@@ -35,3 +53,6 @@ export const gameById = (id: string): GameDefinition<any> | undefined =>
 
 export const externalGameById = (id: string): ExternalGameDefinition | undefined =>
   EXTERNAL_GAMES.find((g) => g.id === id);
+
+export const soloGameById = (id: string): SoloGameDefinition | undefined =>
+  SOLO_GAMES.find((g) => g.id === id);

@@ -54,6 +54,18 @@ export interface ExternalGameDefinition extends GameCard {
   href: string;
 }
 
+/**
+ * A self-contained single-player game — no room code, peer session, reducer or
+ * bots. It's a full-screen mini-app (mirrors how a `ProjectDefinition`
+ * `Component` works) shown as a normal card in the games gallery. Use this for
+ * solo games (e.g. an educational quiz) that don't fit the two-browser
+ * peer-to-peer `GameDefinition` model.
+ */
+export interface SoloGameDefinition extends GameCard {
+  /** The full-screen in-app game. Receives `onExit` to return to the gallery. */
+  Component: ComponentType<{ onExit: () => void }>;
+}
+
 export interface GameDefinition<S extends BaseState = BaseState> extends GameCard {
   /** Fewest players needed to start (default 2). */
   minPlayers?: number;
