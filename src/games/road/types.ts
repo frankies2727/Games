@@ -23,7 +23,7 @@ export interface DealtQuestion {
 }
 
 // ---- which game, and how hard the bots are --------------------------------
-export type SubGame = 'trivia' | 'civicpath';
+export type SubGame = 'trivia' | 'civicpath' | 'jeopardy';
 export type Difficulty = 'novice' | 'citizen' | 'scholar';
 
 // Probability a bot answers a civics question correctly, by tier.
@@ -86,6 +86,31 @@ export interface CivicState {
   log: string[]; // short activity feed (most recent last)
 }
 
+// ---- Jeopardy!-style sub-game state ---------------------------------------
+export interface JClue {
+  value: number;
+  q: DealtQuestion;
+  done: boolean;
+}
+export interface JCategory {
+  title: string;
+  clues: JClue[];
+}
+export interface JeopardyState {
+  board: JCategory[];
+  scores: Record<string, number>; // can go negative
+  order: string[];
+  control: string; // whose turn it is to pick a clue
+  phase: 'pick' | 'answer' | 'steal' | 'reveal';
+  active: { cat: number; row: number } | null;
+  answerer: string | null; // who must answer right now (control in 'answer', a rival in 'steal')
+  attempted: string[]; // players who already tried the active clue
+  stealQueue: string[]; // rivals still to be offered the steal, in order
+  lastResult: { pid: string | null; correct: boolean } | null;
+  difficulty: Difficulty;
+  log: string[];
+}
+
 // ---- the umbrella hub state -----------------------------------------------
 export interface RoadState extends BaseState {
   /** Chosen in the lobby (defaults to trivia); which sub-game is/would be played. */
@@ -94,6 +119,7 @@ export interface RoadState extends BaseState {
   difficulty: Difficulty;
   trivia: TriviaState | null;
   civic: CivicState | null;
+  jeopardy: JeopardyState | null;
 }
 
 // Sub-reducers return their new sub-state plus an optional lift to the hub's

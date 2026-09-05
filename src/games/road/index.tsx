@@ -17,6 +17,14 @@ import {
   civicGameOverMessage,
   CivicBoard,
 } from './civic';
+import {
+  jeopardyStart,
+  jeopardyReducer,
+  jeopardyRedact,
+  jeopardyBot,
+  jeopardyGameOverMessage,
+  JeopardyBoard,
+} from './jeopardy';
 
 // ---------------------------------------------------------------------------
 // Road to Citizenship — an umbrella "hub" holding several citizenship games. One
@@ -45,7 +53,15 @@ const GAME_META: Record<SubGame, { name: string; emoji: string; blurb: string }>
     emoji: '🎲',
     blurb: 'A strategy board game: earn resource cards from civics questions, trade & build milestones, then pass the exam to win.',
   },
+  jeopardy: {
+    name: 'Citizenship Jeopardy!',
+    emoji: '🟦',
+    blurb: 'A quiz-board showdown: pick a category & dollar value, answer to bank it (miss and rivals can steal). Biggest bank wins.',
+  },
 };
+
+// Sub-games that seat bots and use the difficulty setting.
+const BOT_GAMES: SubGame[] = ['civicpath', 'jeopardy'];
 
 const DIFFICULTIES: Difficulty[] = ['novice', 'citizen', 'scholar'];
 
@@ -59,14 +75,15 @@ function createInitialState(roomId: string): RoadState {
     difficulty: 'citizen',
     trivia: null,
     civic: null,
+    jeopardy: null,
   };
 }
 
 function start(state: RoadState): RoadState {
-  if (state.chosen === 'civicpath') {
-    return { ...state, status: 'playing', winnerId: null, civic: civicStart(state.players, state.difficulty), trivia: null };
-  }
-  return { ...state, status: 'playing', winnerId: null, trivia: triviaStart(state.players), civic: null };
+  const base = { ...state, status: 'playing' as const, winnerId: null, trivia: null, civic: null, jeopardy: null };
+  if (state.chosen === 'civicpath') return { ...base, civic: civicStart(state.players, state.difficulty) };
+  if (state.chosen === 'jeopardy') return { ...base, jeopardy: jeopardyStart(state.players, state.difficulty) };
+  return { ...base, trivia: triviaStart(state.players) };
 }
 
 function reducer(state: RoadState, pid: string, action: GameAction): RoadState {
@@ -75,7 +92,7 @@ function reducer(state: RoadState, pid: string, action: GameAction): RoadState {
     if (pid !== hostOf(state)) return state;
     if (action.type === 'choose') {
       const game = action.game as SubGame;
-      if (game === 'trivia' || game === 'civicpath') return { ...state, chosen: game };
+      if (game === 'trivia' || game === 'civicpath' || game === 'jeopardy') return { ...state, chosen: game };
       return state;
     }
     if (action.type === 'difficulty') {
@@ -90,21 +107,15 @@ function reducer(state: RoadState, pid: string, action: GameAction): RoadState {
 
   if (state.chosen === 'civicpath' && state.civic) {
     const r = civicReducer(state.civic, state.players, pid, action);
-    return {
-      ...state,
-      civic: r.state,
-      status: r.status ?? state.status,
-      winnerId: r.status ? r.winnerId ?? null : state.winnerId,
-    };
+    return { ...state, civic: r.state, status: r.status ?? state.status, winnerId: r.status ? r.winnerId ?? null : state.winnerId };
+  }
+  if (state.chosen === 'jeopardy' && state.jeopardy) {
+    const r = jeopardyReducer(state.jeopardy, state.players, pid, action);
+    return { ...state, jeopardy: r.state, status: r.status ?? state.status, winnerId: r.status ? r.winnerId ?? null : state.winnerId };
   }
   if (state.chosen === 'trivia' && state.trivia) {
     const r = triviaReducer(state.trivia, state.players, pid, action);
-    return {
-      ...state,
-      trivia: r.state,
-      status: r.status ?? state.status,
-      winnerId: r.status ? r.winnerId ?? null : state.winnerId,
-    };
+    return { ...state, trivia: r.state, status: r.status ?? state.status, winnerId: r.status ? r.winnerId ?? null : state.winnerId };
   }
   return state;
 }
@@ -114,6 +125,7 @@ function redact(state: RoadState, viewerId: string): RoadState {
   // can read the correct answers (difficulty then decides how they play).
   if (looksLikeBot(viewerId)) return state;
   if (state.chosen === 'civicpath' && state.civic) return { ...state, civic: civicRedact(state.civic, viewerId) };
+  if (state.chosen === 'jeopardy' && state.jeopardy) return { ...state, jeopardy: jeopardyRedact(state.jeopardy, viewerId) };
   if (state.chosen === 'trivia' && state.trivia) return { ...state, trivia: triviaRedact(state.trivia, viewerId) };
   return state;
 }
@@ -121,6 +133,7 @@ function redact(state: RoadState, viewerId: string): RoadState {
 function botMove(state: RoadState, botId: string): GameAction | null {
   if (state.status !== 'playing') return null;
   if (state.chosen === 'civicpath' && state.civic) return civicBot(state.civic, botId);
+  if (state.chosen === 'jeopardy' && state.jeopardy) return jeopardyBot(state.jeopardy, botId);
   if (state.chosen === 'trivia' && state.trivia) return triviaBot(state.trivia, botId, state.difficulty);
   return null;
 }
@@ -159,7 +172,7 @@ function GamePicker({ state, myId, dispatch }: BoardProps<RoadState>) {
         </div>
       </div>
 
-      {state.chosen === 'civicpath' && (
+      {BOT_GAMES.includes(state.chosen) && (
         <div>
           <p className="text-[11px] font-mono uppercase tracking-widest text-[#8A92A0] mb-2 text-center">Bot difficulty</p>
           <div className="grid grid-cols-3 gap-2">
@@ -194,6 +207,9 @@ function Board({ state, myId, dispatch }: BoardProps<RoadState>) {
   if (state.chosen === 'civicpath' && state.civic) {
     return <CivicBoard state={state.civic} players={state.players} myId={myId} dispatch={dispatch} />;
   }
+  if (state.chosen === 'jeopardy' && state.jeopardy) {
+    return <JeopardyBoard state={state.jeopardy} players={state.players} myId={myId} dispatch={dispatch} />;
+  }
   if (state.chosen === 'trivia' && state.trivia) {
     return <TriviaBoard state={state.trivia} players={state.players} myId={myId} dispatch={dispatch} />;
   }
@@ -217,6 +233,7 @@ export const roadToCitizenship: GameDefinition<RoadState> = {
   LobbyExtra: GamePicker,
   gameOverMessage: (state, myId) => {
     if (state.chosen === 'civicpath' && state.civic) return civicGameOverMessage(state.civic, state.players, state.winnerId, myId);
+    if (state.chosen === 'jeopardy' && state.jeopardy) return jeopardyGameOverMessage(state.jeopardy, state.players, state.winnerId, myId);
     if (state.trivia) return triviaGameOverMessage(state.trivia, state.players, state.winnerId, myId);
     return state.winnerId === myId ? 'You win!' : 'Game over.';
   },

@@ -100,10 +100,18 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
     (**Novice / Citizen / Scholar** set how often they answer correctly) and with
     distinct personas — **Govbot-y** aggressively hoards Legislative & History
     cards, so humans have to adapt.
+  - **Citizenship Jeopardy!** — a quiz-board showdown on a grid of civics
+    categories × dollar values ($200–$800). The player in control picks a clue
+    and answers; answer right to **bank the value** and keep control, miss it and
+    it **subtracts** — then rivals get to **steal** it in turn (answer or pass).
+    Play out the whole board; the **biggest bank wins**. It's turn-based (no
+    real-time buzzer) so humans and bots compete fairly, and empty seats fill with
+    the same difficulty-tiered **bots**.
 
   The answer key never travels on the wire before it's safe: game state masks
-  each question's correct answer, other players' picks, and unanswered exam
-  questions (`redact`) so nothing leaks to a peer's console. Time-sensitive and
+  each question's correct answer, other players' picks, unanswered exam questions,
+  and un-played Jeopardy clues (`redact`) so nothing leaks to a peer's console.
+  Time-sensitive and
   location-specific questions from the official 100 (current office-holders, your
   state's senators/representative/governor/capital) are left out so every answer
   stays correct.

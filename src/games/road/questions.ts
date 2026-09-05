@@ -681,7 +681,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 // Turn a source question into a dealt one with its options shuffled, so the
 // correct answer isn't always in the same position.
-function deal(q: Question): DealtQuestion {
+export function deal(q: Question): DealtQuestion {
   const correct = q.options[q.correctAnswerIndex];
   const options = shuffle(q.options);
   return {
@@ -748,3 +748,11 @@ export function dealFromCategory(category: Category): DealtQuestion {
 export function randomCategory(): Category {
   return CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
 }
+
+// The source questions belonging to one resource category.
+export function questionsByCategory(category: Category): Question[] {
+  return citizenshipQuestions.filter((q) => categoryOf(q.id) === category);
+}
+
+// Shuffle helper (re-exported so sub-games can build boards deterministically-ish).
+export { shuffle };
