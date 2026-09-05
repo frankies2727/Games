@@ -10,10 +10,12 @@ import { uno } from './uno';
 import { blackjack } from './blackjack';
 import { loteria } from './loteria';
 import { crossword } from './crossword';
+import { roadToCitizenship } from './road';
 
-// The gallery of available games (most are 2-player; Ludo, Lotería & Crossword seat more).
+// The gallery of available games (most are 2-player; Ludo, Lotería, Crossword &
+// Road to Citizenship seat more).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const GAMES: GameDefinition<any>[] = [paperNumbers, ticTacToe, connectFour, highLow, battleship, dotsAndBoxes, ludo, uno, blackjack, loteria, crossword];
+export const GAMES: GameDefinition<any>[] = [paperNumbers, ticTacToe, connectFour, highLow, battleship, dotsAndBoxes, ludo, uno, blackjack, loteria, crossword, roadToCitizenship];
 
 // Games hosted on their own site. They have no in-app state/reducer/board, so
 // they live here rather than in GAMES — the gallery renders the same card but
