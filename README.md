@@ -80,16 +80,19 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
   never weighs down the rest of the site. Answers never travel on the wire —
   game state only carries which words have been claimed — so nothing leaks to a
   peer's console.
-- **Citizenship Trivia** — a **single-player** study game for the U.S.
-  naturalization test. Pick a length (10, 20, 50, or all questions) and work
-  through the **official USCIS civics questions**, drawn at random with the
-  answer choices shuffled each time. Each answer reveals the correct choice and
-  a short fact, and the end screen scores you out of the total and against the
-  USCIS **60% pass mark** (with a little confetti if you clear it). No room
-  code, no sign-in, no bots — just you and the questions. Time-sensitive and
-  location-specific questions from the official 100 (current office-holders,
-  your state's senators/representative/governor/capital) are left out so every
-  answer stays correct.
+- **Citizenship Trivia** — a study game for the U.S. naturalization test, played
+  **solo or with 2–4 friends** over a shared room code (no sign-in, no bots).
+  Everyone answers the **same** question at once from the **official USCIS civics
+  questions** (options shuffled each time); once the whole room has locked in, the
+  round **reveals** — the correct choice, a short fact, and each player's ✓/✗ —
+  and scores update. Most correct after **10 questions** wins (or, solo, you're
+  scored against the USCIS **60% pass mark**). The answer key never travels on
+  the wire before a reveal: game state masks each question's correct answer and
+  every other player's pick (`redact`) until everyone has answered, so nothing
+  leaks to a peer's console. Time-sensitive and location-specific questions from
+  the official 100 (current office-holders, your state's
+  senators/representative/governor/capital) are left out so every answer stays
+  correct.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.
@@ -163,17 +166,12 @@ Each game is a self-contained `GameDefinition` in `src/games/` (initial state,
 `src/games/index.ts` and it shows up in the gallery automatically — the
 peer-to-peer networking in `src/hooks/usePeerSession.ts` is game-agnostic. Set
 `minPlayers`/`maxPlayers` (both default 2) to seat more than two — the lobby, the
-"Play vs Computer" flow, and the host's start gate all adapt automatically.
+"Play vs Computer" flow, and the host's start gate all adapt automatically. A
+game that reads well alone, like **Citizenship Trivia**, can set `minPlayers: 1`
+so the host can also start solo (its `redact` keeps hidden-answer games honest —
+see below).
 
-A **single-player** game that doesn't fit the peer-to-peer model (no room code,
-no reducer, no bots) — like an educational quiz — is a `SoloGameDefinition`
-instead: a card plus a self-contained full-screen `Component` (given `onExit`),
-exactly like a `ProjectDefinition`. Add it to `SOLO_GAMES` in
-`src/games/index.ts` (lazy-load the component so its code only downloads when
-opened) and it appears as a normal gallery card that routes to `/play/<id>`.
-**Citizenship Trivia** is the first one.
-
-To make a peer-to-peer game playable solo, add an optional `botMove(state, botId)` to its
+To make a peer-to-peer game playable solo against CPUs, add an optional `botMove(state, botId)` to its
 definition that returns the action the bot should take (or `null` when it isn't
 the bot's turn). Games with a `botMove` automatically get the **Play vs Computer**
 button; `src/hooks/useLocalSession.ts` runs the same `reducer` locally and drives

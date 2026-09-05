@@ -1,4 +1,4 @@
-import { Question } from './types';
+import { DealtQuestion, Question } from './types';
 
 // The official USCIS civics questions for the naturalization test (2008
 // version, the set still used for most applicants), reworked into a
@@ -679,27 +679,25 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-// A quiz question with its four options shuffled, so the correct answer isn't
-// always in the same position. Tracks where the correct option landed.
-export interface QuizQuestion extends Question {
-  shuffledOptions: string[];
-  correctIndex: number;
-}
-
-function toQuizQuestion(q: Question): QuizQuestion {
+// Turn a source question into a dealt one with its options shuffled, so the
+// correct answer isn't always in the same position.
+function deal(q: Question): DealtQuestion {
   const correct = q.options[q.correctAnswerIndex];
-  const shuffledOptions = shuffle(q.options);
+  const options = shuffle(q.options);
   return {
-    ...q,
-    shuffledOptions,
-    correctIndex: shuffledOptions.indexOf(correct),
+    id: q.id,
+    question: q.question,
+    options,
+    correctIndex: options.indexOf(correct),
+    explanation: q.explanation,
   };
 }
 
-// Pick `count` random questions (or all of them), each with its options shuffled.
-export function getQuizQuestions(count: number): QuizQuestion[] {
-  const picked = shuffle(citizenshipQuestions).slice(0, Math.min(count, citizenshipQuestions.length));
-  return picked.map(toQuizQuestion);
+// Deal `count` random questions (options shuffled) for one game.
+export function buildDeck(count: number): DealtQuestion[] {
+  return shuffle(citizenshipQuestions)
+    .slice(0, Math.min(count, citizenshipQuestions.length))
+    .map(deal);
 }
 
 export const TOTAL_QUESTIONS = citizenshipQuestions.length;
