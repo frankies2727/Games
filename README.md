@@ -1,8 +1,8 @@
 # Frankie Labs
 
 A gallery of chill, real-time multiplayer browser games. Play over a shared
-room code (**2 players**, or **2–4** for Ludo, **2–5** for Lotería, Blackjack &
-Crossword Clash),
+room code (**2 players**, or **2–4** for Ludo, **2–5** for Lotería, Blackjack,
+Crossword Clash & Battleship),
 or hit **Play vs Computer** on any game's join screen to take on built-in bots
 solo (offline).
 In an online room, the **host can also add bots** to fill open seats, so you can
@@ -17,10 +17,15 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
 - **High-Low** — the guesser secretly calls higher or lower, then the *opponent
   deals a card blind* (they can't see the call). Each round starts from a fresh
   random card. Correct call scores; first to 6.
-- **Battleship** — arrange your fleet (shuffle a **random** layout or **place each
-  ship by hand**), then hunt the enemy ships. The game only starts once **both**
-  players ready up. Opponent ship positions are masked server-side (`redact`) so
-  they can't be read off the wire.
+- **Battleship** — now for **2–5 admirals** on a bigger **12×12** ocean with a
+  **six-ship fleet** (Carrier, Battleship, Destroyer, Cruiser, Submarine, Patrol
+  Boat). Arrange your fleet (shuffle a **random** layout or **place each ship by
+  hand**); the game starts once **everyone** readies up. On your turn, **pick
+  which opponent to fire at** (tabs show each rival and how many of their ships
+  are left) — sink a whole fleet to knock that admiral out, and the **last fleet
+  afloat wins**. A side panel lists **every ship kind and size** and which remain
+  to sink, for your target and for your own fleet. Opponent ship positions are
+  masked server-side (`redact`) so they can't be read off the wire.
 - **Dots & Boxes** — pick a **quick** (5×5) or **long** (8×8) board, then take
   turns drawing the edges of the grid; close the fourth side of a box to claim it
   and take another turn. Most boxes wins.
@@ -115,6 +120,13 @@ mix real friends and CPUs in the same game. Pick one from the home screen:
   location-specific questions from the official 100 (current office-holders, your
   state's senators/representative/governor/capital) are left out so every answer
   stays correct.
+
+  All three games draw from an expanded bank of **500+** civics, U.S. history and
+  geography questions — the official USCIS set plus data-driven additions (all 50
+  state capitals, the Presidents in order, key constitutional amendments) and
+  curated facts — and every game **reshuffles a fresh, category-balanced set**, so
+  sessions rarely repeat. The Jeopardy activity log keeps the **full history**,
+  scrollable.
 
 When a game ends, the final board stays on screen behind the result panel — hit
 **View Final Board** to inspect exactly how it played out before heading back.

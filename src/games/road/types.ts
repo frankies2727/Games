@@ -8,6 +8,8 @@ export interface Question {
   options: string[];
   correctAnswerIndex: number;
   explanation: string;
+  /** Resource category. Optional on the original USCIS set (derived by id there). */
+  category?: Category;
 }
 
 // One question as dealt into a game: options shuffled, correct answer tracked by

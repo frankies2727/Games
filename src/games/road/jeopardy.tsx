@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { GameAction } from '../../types';
 import { cn } from '../../lib/utils';
 import { CheckCircle2, XCircle, Trophy, ScrollText } from 'lucide-react';
@@ -38,7 +39,8 @@ function buildBoard(): JCategory[] {
 
 const nextInOrder = (order: string[], id: string) => order[(order.indexOf(id) + 1) % order.length];
 const boardDone = (board: JCategory[]) => board.every((c) => c.clues.every((cl) => cl.done));
-const say = (log: string[], line: string) => [...log, line].slice(-8);
+// Keep the whole game's history (bounded generously so state stays small).
+const say = (log: string[], line: string) => [...log, line].slice(-300);
 const name = (players: Players, id: string | null) => (id ? players[id]?.name ?? 'Player' : 'No one');
 
 // ---- setup ----------------------------------------------------------------
@@ -277,6 +279,13 @@ export function JeopardyBoard({ state, players, myId, dispatch }: JBoardProps) {
   const iAnswer = state.answerer === myId;
   const controlName = name(players, state.control);
 
+  // Keep the activity log scrolled to the newest entry as history grows.
+  const logRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const el = logRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [state.log.length]);
+
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-8 space-y-5">
       {/* Scores */}
@@ -386,11 +395,11 @@ export function JeopardyBoard({ state, players, myId, dispatch }: JBoardProps) {
         </div>
       )}
 
-      {/* Activity */}
+      {/* Activity — full history, scrollable */}
       <div className="border-2 border-[#2E343F] bg-[#0F1117] p-3">
         <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-[#6B7280] mb-1"><ScrollText className="w-3 h-3" /> Activity</div>
-        <ul className="space-y-0.5">
-          {state.log.slice(-4).map((l, i) => <li key={i} className="text-xs text-[#9CA3AF] leading-snug">{l}</li>)}
+        <ul ref={logRef} className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
+          {state.log.map((l, i) => <li key={i} className="text-xs text-[#9CA3AF] leading-snug">{l}</li>)}
         </ul>
       </div>
 

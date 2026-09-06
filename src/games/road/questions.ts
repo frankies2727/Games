@@ -1,4 +1,5 @@
 import { DealtQuestion, Question } from './types';
+import { extraQuestions } from './bank';
 
 // The official USCIS civics questions for the naturalization test (2008
 // version, the set still used for most applicants), reworked into a
@@ -12,7 +13,7 @@ import { DealtQuestion, Question } from './types';
 // President's party, and the ones that depend on where you live (your state's
 // senators, your representative, your governor, your state capital). Everything
 // else from the official list is here.
-export const citizenshipQuestions: Question[] = [
+const BASE_QUESTIONS: Question[] = [
   // ---- American Government: Principles of American Democracy ----
   {
     id: 'q1',
@@ -669,6 +670,11 @@ export const citizenshipQuestions: Question[] = [
   },
 ];
 
+// The full pool = the official USCIS set plus the expanded bank (state capitals,
+// Presidents, amendments, and curated facts). Both Trivia and Jeopardy draw from
+// this and reshuffle it every game.
+export const citizenshipQuestions: Question[] = [...BASE_QUESTIONS, ...extraQuestions];
+
 // Fisher-Yates shuffle (returns a new array).
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -693,11 +699,29 @@ export function deal(q: Question): DealtQuestion {
   };
 }
 
-// Deal `count` random questions (options shuffled) for one game.
+// Deal `count` questions for one game, drawn fresh and shuffled every time.
+// The pool is category-balanced first (so a game always mixes government,
+// rights, history and geography rather than being swamped by the largest
+// category), then topped up at random and shuffled.
 export function buildDeck(count: number): DealtQuestion[] {
-  return shuffle(citizenshipQuestions)
-    .slice(0, Math.min(count, citizenshipQuestions.length))
-    .map(deal);
+  const n = Math.min(count, citizenshipQuestions.length);
+  const perCat = Math.floor(n / CATEGORIES.length);
+  const picked: Question[] = [];
+  const used = new Set<string>();
+  const pools: Record<Category, Question[]> = {
+    history: [], geography: [], legislative: [], rights: [],
+  };
+  for (const c of CATEGORIES) pools[c] = shuffle(questionsByCategory(c));
+  for (const c of CATEGORIES) {
+    for (let i = 0; i < perCat && pools[c].length; i++) {
+      const q = pools[c].pop()!;
+      picked.push(q);
+      used.add(q.id);
+    }
+  }
+  const rest = shuffle(citizenshipQuestions.filter((q) => !used.has(q.id)));
+  while (picked.length < n && rest.length) picked.push(rest.pop()!);
+  return shuffle(picked).map(deal);
 }
 
 export const TOTAL_QUESTIONS = citizenshipQuestions.length;
@@ -731,6 +755,8 @@ for (const id of [...idsIn(1, 5), 'q7', 'q11', 'q12', ...idsIn(13, 38)]) CATEGOR
 for (const id of ['q6', 'q9', 'q10', ...idsIn(39, 48)]) CATEGORY_BY_ID[id] = 'rights';
 for (const id of ['q8', ...idsIn(49, 78), ...idsIn(87, 91)]) CATEGORY_BY_ID[id] = 'history';
 for (const id of idsIn(79, 86)) CATEGORY_BY_ID[id] = 'geography';
+// The expanded bank carries its category on each question.
+for (const q of extraQuestions) if (q.category) CATEGORY_BY_ID[q.id] = q.category;
 
 export const categoryOf = (id: string): Category => CATEGORY_BY_ID[id] ?? 'legislative';
 
